@@ -15,6 +15,13 @@ struct AddGeofenceView: View {
     @State private var cardOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
+    @State private var is3DEnabled = false
+    @State private var mapPosition: MapCameraPosition = .camera(MapCamera(
+        centerCoordinate: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
+        distance: 1000,
+        heading: 0,
+        pitch: 0
+    ))
     
     init(geofenceListViewModel: GeofenceListViewModel) {
         _viewModel = StateObject(wrappedValue: AddGeofenceViewModel(geofenceListViewModel: geofenceListViewModel))
@@ -23,77 +30,47 @@ struct AddGeofenceView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                // Map View with precise pin - exactly 50% height
-                Map(coordinateRegion: $viewModel.region, showsUserLocation: true)
-                    .frame(height: geometry.size.height * 0.5)
-                    .onAppear {
-                        viewModel.updateLocation(
-                            latitude: viewModel.region.center.latitude,
-                            longitude: viewModel.region.center.longitude
-                        )
-                    }
-                    .onChange(of: viewModel.region.center.latitude) { _ in
-                        viewModel.updateLocation(
-                            latitude: viewModel.region.center.latitude,
-                            longitude: viewModel.region.center.longitude
-                        )
-                    }
-                    .onChange(of: viewModel.region.center.longitude) { _ in
-                        viewModel.updateLocation(
-                            latitude: viewModel.region.center.latitude,
-                            longitude: viewModel.region.center.longitude
-                        )
-                    }
-                    .overlay {
-                        // Radius Circle
-                        Circle()
-                            .strokeBorder(.blue.opacity(0.3), lineWidth: 1)
-                            .background(
-                                Circle()
-                                    .fill(.blue.opacity(0.1))
-                            )
-                            .frame(width: viewModel.radiusToPoints(), height: viewModel.radiusToPoints())
-                            .allowsHitTesting(false)
-                        
-                        // Precise location indicator
-                        ZStack {
-                            // Pin shadow for depth
-                            Circle()
-                                .fill(.black.opacity(0.1))
-                                .frame(width: 5, height: 5)
-                                .blur(radius: 1)
-                                .offset(y: 8)
-                            
-                            // Main pin
-                            VStack(spacing: 0) {
-                                Image(systemName: "mappin.circle.fill")
-                                    .symbolRenderingMode(.hierarchical)
-                                    .font(.system(size: 30))
-                                    .foregroundStyle(Color(.systemBlue))
-                                
-                                // Precise point indicator
-                                Rectangle()
-                                    .fill(Color(.systemBlue))
-                                    .frame(width: 2, height: 6)
-                            }
-                            .offset(y: 0)
-                        }
-                    }
-                    .overlay(alignment: .bottomTrailing) {
-                        // Current Location Button with system colors
-                        Button(action: {}) {
+                // Map View with precise pin - adjusted to 45% height
+                Map(position: $mapPosition) {
+                    // Get coordinates from camera position
+                    let coordinate = mapPosition.camera?.centerCoordinate ?? CLLocationCoordinate2D(
+                        latitude: viewModel.latitude,
+                        longitude: viewModel.longitude
+                    )
+                    
+                    // Always show the marker and circle
+                    Marker("Silent Circle Location", coordinate: coordinate)
+                        .tint(.blue)
+                    
+                    MapCircle(center: coordinate, radius: viewModel.radius)
+                        .foregroundStyle(.blue.opacity(0.15))
+                        .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                }
+                .mapStyle(.standard(elevation: .realistic))
+                .overlay(alignment: .bottomTrailing) {
+                    VStack(spacing: 8) {
+                        // Custom Location Button
+                        Button(action: {
+                            // Add location centering logic here
+                        }) {
                             Image(systemName: "location.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(Color(.systemBlue))
+                                .foregroundStyle(.primary)
                                 .frame(width: 40, height: 40)
-                                .background(
-                                    Circle()
-                                        .fill(Color(.systemBackground))
-                                        .shadow(color: Color(.systemFill), radius: 4, x: 0, y: 2)
-                                )
+                                .background(.thinMaterial)
+                                .clipShape(Circle())
+                                .shadow(radius: 2)
                         }
-                        .padding([.trailing, .bottom], 16)
                     }
+                    .padding()
+                }
+                .frame(height: geometry.size.height * 0.45)
+                .onMapCameraChange(frequency: .continuous) { context in
+                    // Update the viewModel with new coordinates
+                    viewModel.updateLocation(
+                        latitude: context.camera.centerCoordinate.latitude,
+                        longitude: context.camera.centerCoordinate.longitude
+                    )
+                }
                 
                 // Control Panel - exactly 50% height
                 VStack(spacing: 20) {
@@ -114,8 +91,8 @@ struct AddGeofenceView: View {
                                 .background(Color(.systemGray6))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .focused($isFocused)
-                                .onChange(of: isFocused) { focused in
-                                    if !focused {
+                                .onChange(of: isFocused) { oldValue, newValue in
+                                    if !newValue {
                                         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), 
                                                                      to: nil, 
                                                                      from: nil, 
@@ -194,9 +171,6 @@ struct AddGeofenceView: View {
                                         .foregroundStyle(.blue)
                                     Slider(value: $viewModel.radius, in: 10...500, step: 10)
                                         .tint(.blue)
-                                        .onChange(of: viewModel.radius) { _ in
-                                            isFocused = false  // Dismiss keyboard when radius is changed
-                                        }
                                     Image(systemName: "circle")
                                         .foregroundStyle(.blue)
                                 }
@@ -236,8 +210,8 @@ struct AddGeofenceView: View {
             }
         }
         .ignoresSafeArea()
-        .navigationBarBackButtonHidden(true)
-        .navigationBarItems(leading: 
+        .navigationBarHidden(true)
+        .overlay(alignment: .topLeading) {
             Button(action: { dismiss() }) {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.left")
@@ -246,10 +220,12 @@ struct AddGeofenceView: View {
                         .font(.system(size: 17, weight: .regular))
                 }
                 .foregroundStyle(.blue)
-                .frame(height: 44)
-                .contentShape(Rectangle())
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .opacity(isFocused ? 0 : 1)  // Hide back button when keyboard is shown
+                .animation(.easeInOut, value: isFocused)
             }
-        )
+        }
         .onAppear {
             NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
                 let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect ?? .zero
@@ -261,7 +237,12 @@ struct AddGeofenceView: View {
         }
         .sheet(isPresented: $showingLocationSearch) {
             LocationSearchView(onLocationSelected: { name, coordinate in
-                viewModel.region.center = coordinate
+                mapPosition = .camera(MapCamera(
+                    centerCoordinate: coordinate,
+                    distance: 1000,
+                    heading: 0,
+                    pitch: 0
+                ))
                 viewModel.updateLocation(
                     latitude: coordinate.latitude,
                     longitude: coordinate.longitude

@@ -14,10 +14,10 @@ class AddGeofenceViewModel: ObservableObject {
     @Published var latitude: Double = 0.0
     @Published var longitude: Double = 0.0
     @Published var isActive = true
-    @Published var region = MKCoordinateRegion(
+    @Published var camera: MapCameraPosition = .region(MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
         span: MKCoordinateSpan(latitudeDelta: 0.0010, longitudeDelta: 0.0010)
-    )
+    ))
     
     private let geofenceListViewModel: GeofenceListViewModel
     
@@ -40,11 +40,26 @@ class AddGeofenceViewModel: ObservableObject {
     }
     
     func radiusToPoints() -> CGFloat {
+        guard let region = camera.region else { return 0 }
         let metersPerPoint = region.span.longitudeDelta * 111000 / UIScreen.main.bounds.width
         return (radius * 2) / metersPerPoint
     }
     
     var isValidGeofence: Bool {
         !name.isEmpty && latitude != 0
+    }
+    
+    // New helper methods for iOS 17+
+    func updateCameraPosition(coordinate: CLLocationCoordinate2D) {
+        withAnimation(.easeInOut) {
+            camera = .region(MKCoordinateRegion(
+                center: coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.0010, longitudeDelta: 0.0010)
+            ))
+        }
+    }
+    
+    func getCurrentRegion() -> MKCoordinateRegion? {
+        return camera.region
     }
 }

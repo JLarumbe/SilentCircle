@@ -88,13 +88,21 @@ struct LocationSearchView: View {
                     
                     // Selected Location Map
                     if let coordinate = viewModel.selectedCoordinate {
-                        let annotation = MapLocation(coordinate: coordinate)
-                        Map(coordinateRegion: .constant(MKCoordinateRegion(
+                        Map(initialPosition: .region(MKCoordinateRegion(
                             center: coordinate,
                             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-                        )), annotationItems: [annotation]) { location in
-                            MapMarker(coordinate: location.coordinate, tint: .accentColor)
+                        ))) {
+                            Annotation("Selected Location", coordinate: coordinate) {
+                                Image(systemName: "mappin.circle.fill")
+                                    .font(.title)
+                                    .foregroundStyle(.blue)
+                                    .background {
+                                        Circle()
+                                            .fill(.white)
+                                    }
+                            }
                         }
+                        .mapStyle(.standard(elevation: .realistic))
                         .frame(height: 200)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .padding(.horizontal)
@@ -143,7 +151,7 @@ struct LocationSearchView: View {
             }
             .navigationTitle("Choose Location")
             .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: searchText) { newValue in
+            .onChange(of: searchText) { oldValue, newValue in
                 // Cancel any existing debounce task
                 searchDebounceTask?.cancel()
                 
