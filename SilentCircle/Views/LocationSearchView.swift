@@ -31,6 +31,7 @@ struct LocationSearchView: View {
     @StateObject private var viewModel: LocationSearchViewModel
     @State private var searchText = ""
     @FocusState private var isFocused: Bool
+    @State private var searchDebounceTask: Task<Void, Never>?
     
     var onLocationSelected: ((String, CLLocationCoordinate2D) -> Void)?
     
@@ -143,7 +144,18 @@ struct LocationSearchView: View {
             .navigationTitle("Choose Location")
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: searchText) { newValue in
-                viewModel.updateSearchFragment(newValue)
+                // Cancel any existing debounce task
+                searchDebounceTask?.cancel()
+                
+                // Create new debounce task
+                searchDebounceTask = Task {
+                    try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                    if !Task.isCancelled {
+                        await MainActor.run {
+                            viewModel.updateSearchFragment(newValue)
+                        }
+                    }
+                }
             }
         }
     }
