@@ -19,6 +19,7 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     @Published var selectedCoordinate: CLLocationCoordinate2D?
     
     private let searchCompleter: MKLocalSearchCompleter
+    private var currentSearch: MKLocalSearch?
     
     override init() {
         self.searchCompleter = MKLocalSearchCompleter()
@@ -44,16 +45,22 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     }
     
     func selectLocation(_ result: MKLocalSearchCompletion, completion: @escaping (String, CLLocationCoordinate2D) -> Void) {
+        // Cancel any existing search
+        currentSearch?.cancel()
+        
         selectedLocation = result.title
         
+        // Create search request first
         let searchRequest = MKLocalSearch.Request(completion: result)
-        let search = MKLocalSearch(request: searchRequest)
+        currentSearch = MKLocalSearch(request: searchRequest)
         
-        search.start { response, error in
-            guard let coordinate = response?.mapItems.first?.placemark.coordinate else { return }
+        // Start the search with proper memory management
+        currentSearch?.start { [weak self] response, error in
+            guard let self = self,
+                  let coordinate = response?.mapItems.first?.placemark.coordinate else { return }
             
             DispatchQueue.main.async {
-                self.selectedCoordinate = coordinate
+                self.selectedCoordinate = coordinate  // Update the published property
                 completion(result.title, coordinate)
             }
         }
