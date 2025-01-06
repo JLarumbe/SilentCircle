@@ -16,6 +16,7 @@ struct AddGeofenceView: View {
     @State private var radius: Double = 10.0
     @State private var latitude: Double = 0.0
     @State private var longitude: Double = 0.0
+    @State private var isActive = true
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
@@ -31,6 +32,16 @@ struct AddGeofenceView: View {
                 // Map View with precise pin - exactly 50% height
                 Map(coordinateRegion: $region, showsUserLocation: true)
                     .frame(height: geometry.size.height * 0.5)
+                    .onAppear {
+                        latitude = region.center.latitude
+                        longitude = region.center.longitude
+                    }
+                    .onChange(of: region.center.latitude) { newLatitude in
+                        latitude = newLatitude
+                    }
+                    .onChange(of: region.center.longitude) { newLongitude in
+                        longitude = newLongitude
+                    }
                     .overlay {
                         // Radius Circle
                         Circle()
@@ -95,7 +106,7 @@ struct AddGeofenceView: View {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
                             // Name Field
-                            TextField("Location name", text: $name)
+                            TextField("Location Nickname", text: $name)
                                 .textFieldStyle(.plain)
                                 .padding()
                                 .background(Color(.systemGray6))
@@ -189,6 +200,7 @@ struct AddGeofenceView: View {
                                     longitude: longitude,
                                     radius: radius
                                 )
+                                print("Geofence created: \(name) at \(latitude), \(longitude) with radius \(radius)m")
                                 dismiss()
                             }) {
                                 Text("Create Geofence")
