@@ -28,11 +28,16 @@ struct EmptyStateView: View {
 
 struct LocationSearchView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel = LocationSearchViewModel()
+    @StateObject private var viewModel: LocationSearchViewModel
     @State private var searchText = ""
     @FocusState private var isFocused: Bool
     
     var onLocationSelected: ((String, CLLocationCoordinate2D) -> Void)?
+    
+    init(onLocationSelected: ((String, CLLocationCoordinate2D) -> Void)? = nil) {
+        _viewModel = StateObject(wrappedValue: LocationSearchViewModel())
+        self.onLocationSelected = onLocationSelected
+    }
     
     var body: some View {
         NavigationView {
@@ -146,9 +151,7 @@ struct LocationSearchView: View {
 
 #Preview {
     NavigationView {
-        LocationSearchView { name, coordinate in
-            print("Selected location: \(name) at \(coordinate)")
-        }
+        LocationSearchView()
     }
 }
 
@@ -156,9 +159,9 @@ struct LocationSearchView: View {
 struct LocationSearchView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
-            LocationSearchView { name, coordinate in
+            LocationSearchView(onLocationSelected: { name, coordinate in
                 print("Selected location: \(name) at \(coordinate)")
-            }
+            })
         }
     }
-} 
+}

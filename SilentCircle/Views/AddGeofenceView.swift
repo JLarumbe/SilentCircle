@@ -250,14 +250,14 @@ struct AddGeofenceView: View {
             }
         }
         .sheet(isPresented: $showingLocationSearch) {
-            LocationSearchView { name, coordinate in
+            LocationSearchView(onLocationSelected: { name, coordinate in
                 viewModel.region.center = coordinate
                 viewModel.updateLocation(
                     latitude: coordinate.latitude,
                     longitude: coordinate.longitude
                 )
-                showingLocationSearch = false  // Dismiss the sheet after selection
-            }
+                showingLocationSearch = false
+            })
         }
     }
 }
