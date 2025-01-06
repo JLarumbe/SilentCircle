@@ -24,8 +24,15 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     override init() {
         self.searchCompleter = MKLocalSearchCompleter()
         super.init()
-        self.searchCompleter.resultTypes = .address
+        self.searchCompleter.resultTypes = [.address, .pointOfInterest, .query]
         self.setupCompleter()
+        
+        if let userLocation = LocationManager().userLocation {
+            self.searchCompleter.region = MKCoordinateRegion(
+                center: userLocation.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+            )
+        }
     }
     
     private func setupCompleter() {
