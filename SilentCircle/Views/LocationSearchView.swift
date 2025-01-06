@@ -2,49 +2,6 @@ import SwiftUI
 import MapKit
 import Combine
 
-// Create a dedicated annotation type
-struct MapLocation: Identifiable {
-    let id = UUID()
-    let coordinate: CLLocationCoordinate2D
-}
-
-class LocationSearchHelper: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
-    @Published var searchResults: [MKLocalSearchCompletion] = []
-    private let searchCompleter: MKLocalSearchCompleter
-    
-    override init() {
-        self.searchCompleter = MKLocalSearchCompleter()
-        super.init()
-        self.searchCompleter.delegate = self
-        self.searchCompleter.resultTypes = .address
-    }
-    
-    func updateSearchFragment(_ fragment: String) {
-        searchCompleter.queryFragment = fragment
-    }
-    
-    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        self.searchResults = completer.results
-    }
-    
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        print("Error: \(error.localizedDescription)")
-    }
-    
-    func getCoordinates(for result: MKLocalSearchCompletion, completion: @escaping (CLLocationCoordinate2D?) -> Void) {
-        let searchRequest = MKLocalSearch.Request(completion: result)
-        let search = MKLocalSearch(request: searchRequest)
-        
-        search.start { response, error in
-            guard let coordinate = response?.mapItems.first?.placemark.coordinate else {
-                completion(nil)
-                return
-            }
-            completion(coordinate)
-        }
-    }
-}
-
 struct EmptyStateView: View {
     let title: String
     let systemImage: String
@@ -71,10 +28,8 @@ struct EmptyStateView: View {
 
 struct LocationSearchView: View {
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var viewModel = LocationSearchViewModel()
     @State private var searchText = ""
-    @State private var selectedLocation: String?
-    @State private var selectedCoordinate: CLLocationCoordinate2D?
-    @StateObject private var searchHelper = LocationSearchHelper()
     @FocusState private var isFocused: Bool
     
     var onLocationSelected: ((String, CLLocationCoordinate2D) -> Void)?
@@ -82,12 +37,11 @@ struct LocationSearchView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // Background color - using system background for consistency
                 Color(.systemBackground)
                     .ignoresSafeArea()
                 
                 VStack(spacing: 16) {
-                    // Search Bar with refined styling
+                    // Search Bar
                     HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(.secondary)
@@ -107,7 +61,7 @@ struct LocationSearchView: View {
                             Button(action: { 
                                 withAnimation {
                                     searchText = "" 
-                                    searchHelper.searchResults = []
+                                    viewModel.clearSearch()
                                 }
                             }) {
                                 Image(systemName: "xmark.circle.fill")
@@ -127,7 +81,7 @@ struct LocationSearchView: View {
                     .padding(.horizontal)
                     
                     // Selected Location Map
-                    if let coordinate = selectedCoordinate {
+                    if let coordinate = viewModel.selectedCoordinate {
                         let annotation = MapLocation(coordinate: coordinate)
                         Map(coordinateRegion: .constant(MKCoordinateRegion(
                             center: coordinate,
@@ -141,21 +95,15 @@ struct LocationSearchView: View {
                         .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 4)
                     }
                     
-                    // Search Results with refined styling
-                    if !searchHelper.searchResults.isEmpty && selectedLocation == nil {
+                    // Search Results
+                    if !viewModel.searchResults.isEmpty && viewModel.selectedLocation == nil {
                         List {
-                            ForEach(searchHelper.searchResults, id: \.self) { result in
+                            ForEach(viewModel.searchResults, id: \.self) { result in
                                 Button(action: {
                                     withAnimation {
-                                        selectedLocation = result.title
                                         searchText = result.title
-                                        searchHelper.searchResults = []
-                                        
-                                        searchHelper.getCoordinates(for: result) { coordinate in
-                                            if let coordinate = coordinate {
-                                                selectedCoordinate = coordinate
-                                                onLocationSelected?(result.title, coordinate)
-                                            }
+                                        viewModel.selectLocation(result) { name, coordinate in
+                                            onLocationSelected?(name, coordinate)
                                         }
                                     }
                                 }) {
@@ -190,11 +138,7 @@ struct LocationSearchView: View {
             .navigationTitle("Choose Location")
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: searchText) { newValue in
-                if !newValue.isEmpty {
-                    searchHelper.updateSearchFragment(newValue)
-                } else {
-                    searchHelper.searchResults = []
-                }
+                viewModel.updateSearchFragment(newValue)
             }
         }
     }
