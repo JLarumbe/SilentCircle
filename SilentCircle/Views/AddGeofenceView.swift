@@ -114,6 +114,14 @@ struct AddGeofenceView: View {
                                 .background(Color(.systemGray6))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .focused($isFocused)
+                                .onChange(of: isFocused) { focused in
+                                    if !focused {
+                                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), 
+                                                                     to: nil, 
+                                                                     from: nil, 
+                                                                     for: nil)
+                                    }
+                                }
                             
                             // Location Info
                             HStack(spacing: 12) {
@@ -222,7 +230,9 @@ struct AddGeofenceView: View {
                 .frame(height: geometry.size.height * 0.5)
                 .background(Color(.systemBackground))
                 .offset(y: isFocused ? -keyboardHeight : 0)
-                .animation(.spring(response: 0.3, dampingFraction: 1), value: keyboardHeight)
+                .transaction { transaction in
+                    transaction.animation = .none
+                }
             }
         }
         .ignoresSafeArea()
