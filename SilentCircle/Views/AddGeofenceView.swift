@@ -221,6 +221,8 @@ struct AddGeofenceView: View {
                 .frame(height: geometry.size.height * 0.5)
                 .background(Color(.systemBackground))
                 .offset(y: isFocused ? -keyboardHeight : 0)
+                .animation(.easeOut(duration: 0.3), value: isFocused)
+                .animation(.easeOut(duration: 0.3), value: keyboardHeight)
                 .transaction { transaction in
                     transaction.animation = .none
                 }
