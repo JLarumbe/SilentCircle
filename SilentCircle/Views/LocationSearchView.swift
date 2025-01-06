@@ -166,6 +166,11 @@ struct LocationSearchView: View {
                 }
             }
         }
+        .onDisappear {
+            // Clean up any pending search task
+            searchDebounceTask?.cancel()
+            searchDebounceTask = nil
+        }
     }
 }
 

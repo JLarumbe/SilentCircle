@@ -20,14 +20,16 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     
     private let searchCompleter: MKLocalSearchCompleter
     private var currentSearch: MKLocalSearch?
+    private let locationManager: LocationManager
     
-    override init() {
+    init(locationManager: LocationManager = LocationManager()) {
+        self.locationManager = locationManager
         self.searchCompleter = MKLocalSearchCompleter()
         super.init()
         self.searchCompleter.resultTypes = [.address, .pointOfInterest, .query]
         self.setupCompleter()
         
-        if let userLocation = LocationManager().userLocation {
+        if let userLocation = locationManager.userLocation {
             self.searchCompleter.region = MKCoordinateRegion(
                 center: userLocation.coordinate,
                 span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
@@ -66,8 +68,9 @@ class LocationSearchViewModel: NSObject, ObservableObject {
             guard let self = self,
                   let coordinate = response?.mapItems.first?.placemark.coordinate else { return }
             
-            DispatchQueue.main.async {
-                self.selectedCoordinate = coordinate  // Update the published property
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.selectedCoordinate = coordinate
                 completion(result.title, coordinate)
             }
         }
