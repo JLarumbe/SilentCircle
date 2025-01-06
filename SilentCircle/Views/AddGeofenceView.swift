@@ -13,7 +13,7 @@ struct AddGeofenceView: View {
     @ObservedObject var viewModel: GeofenceListViewModel
     
     @State private var name: String = ""
-    @State private var radius: Double = 100.0
+    @State private var radius: Double = 10.0
     @State private var latitude: Double = 0.0
     @State private var longitude: Double = 0.0
     @State private var region = MKCoordinateRegion(
@@ -32,6 +32,16 @@ struct AddGeofenceView: View {
                 Map(coordinateRegion: $region, showsUserLocation: true)
                     .frame(height: geometry.size.height * 0.5)
                     .overlay {
+                        // Radius Circle
+                        Circle()
+                            .strokeBorder(.blue.opacity(0.3), lineWidth: 1)
+                            .background(
+                                Circle()
+                                    .fill(.blue.opacity(0.1))
+                            )
+                            .frame(width: radiusToPoints(), height: radiusToPoints())
+                            .allowsHitTesting(false)
+                        
                         // Precise location indicator
                         ZStack {
                             // Pin shadow for depth
@@ -44,13 +54,9 @@ struct AddGeofenceView: View {
                             // Main pin
                             VStack(spacing: 0) {
                                 Image(systemName: "mappin.circle.fill")
+                                    .symbolRenderingMode(.hierarchical)
                                     .font(.system(size: 30))
                                     .foregroundStyle(Color(.systemBlue))
-                                    .background(
-                                        Circle()
-                                            .fill(Color(.systemBackground))
-                                            .frame(width: 18, height: 18)
-                                    )
                                 
                                 // Precise point indicator
                                 Rectangle()
@@ -125,9 +131,9 @@ struct AddGeofenceView: View {
                                 Button(action: { 
                                     isFocused = false  // Dismiss keyboard
                                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), 
-                                                                 to: nil, 
-                                                                 from: nil, 
-                                                                 for: nil)  // Force keyboard dismiss
+                                                                     to: nil, 
+                                                                     from: nil, 
+                                                                     for: nil)  // Force keyboard dismiss
                                     showingLocationSearch = true 
                                 }) {
                                     HStack(spacing: 6) {
@@ -165,7 +171,7 @@ struct AddGeofenceView: View {
                                 HStack(spacing: 12) {
                                     Image(systemName: "circle.dotted")
                                         .foregroundStyle(.blue)
-                                    Slider(value: $radius, in: 50...500, step: 50)
+                                    Slider(value: $radius, in: 10...500, step: 10)
                                         .tint(.blue)
                                     Image(systemName: "circle")
                                         .foregroundStyle(.blue)
@@ -193,7 +199,7 @@ struct AddGeofenceView: View {
                                     .background(
                                         RoundedRectangle(cornerRadius: 12)
                                             .fill(name.isEmpty || latitude == 0 ? Color.gray.opacity(0.5) : Color.blue)
-                                    )
+                                        )
                             }
                             .disabled(name.isEmpty || latitude == 0)
                             .padding(.top, 8)
@@ -209,33 +215,19 @@ struct AddGeofenceView: View {
         }
         .ignoresSafeArea()
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { dismiss() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Back")
-                            .font(.system(size: 17, weight: .regular))
-                    }
-                    .foregroundStyle(.blue)
-                    .frame(height: 44)
-                    .contentShape(Rectangle())
+        .navigationBarItems(leading: 
+            Button(action: { dismiss() }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                    Text("Back")
+                        .font(.system(size: 17, weight: .regular))
                 }
-                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .frame(height: 44)
+                .contentShape(Rectangle())
             }
-        }
-        .sheet(isPresented: $showingLocationSearch) {
-            LocationSearchView(onLocationSelected: { name, coordinate in
-                withAnimation {
-                    self.latitude = coordinate.latitude
-                    self.longitude = coordinate.longitude
-                    self.region.center = coordinate
-                }
-                showingLocationSearch = false
-                isFocused = false
-            })
-        }
+        )
         .onAppear {
             NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
                 let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect ?? .zero
@@ -245,6 +237,19 @@ struct AddGeofenceView: View {
                 keyboardHeight = 0
             }
         }
+        .sheet(isPresented: $showingLocationSearch) {
+            LocationSearchView { name, coordinate in
+                region.center = coordinate
+                latitude = coordinate.latitude
+                longitude = coordinate.longitude
+                showingLocationSearch = false  // Dismiss the sheet after selection
+            }
+        }
+    }
+    
+    private func radiusToPoints() -> CGFloat {
+        let metersPerPoint = region.span.longitudeDelta * 111000 / UIScreen.main.bounds.width
+        return (radius * 2) / metersPerPoint
     }
 }
 
