@@ -10,6 +10,7 @@ import MapKit
 struct AddGeofenceView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: AddGeofenceViewModel
+    @StateObject private var locationManager = LocationManager()
     
     @State private var showingLocationSearch = false
     @State private var cardOffset: CGFloat = 0
@@ -51,7 +52,27 @@ struct AddGeofenceView: View {
                     VStack(spacing: 8) {
                         // Custom Location Button
                         Button(action: {
-                            // Add location centering logic here
+                            Task {
+                                locationManager.requestLocation()
+                                // Wait a moment for location update
+                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                                
+                                await MainActor.run {
+                                    if let location = locationManager.userLocation {
+                                        // Remove withAnimation for instant camera movement
+                                        mapPosition = .camera(MapCamera(
+                                            centerCoordinate: location.coordinate,
+                                            distance: 1000,
+                                            heading: 0,
+                                            pitch: 0
+                                        ))
+                                        viewModel.updateLocation(
+                                            latitude: location.coordinate.latitude,
+                                            longitude: location.coordinate.longitude
+                                        )
+                                    }
+                                }
+                            }
                         }) {
                             Image(systemName: "location.fill")
                                 .foregroundStyle(.primary)

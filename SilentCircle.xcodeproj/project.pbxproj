@@ -399,6 +399,8 @@
 				DEVELOPMENT_TEAM = 44PNL785M7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "\"SilentCircle needs your location to automatically silence your device when you enter your saved locations. This helps maintain your quiet zones even when the app is in the background.\"";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "\"SilentCircle needs your location to set up and manage your silent zones.\"";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -429,6 +431,8 @@
 				DEVELOPMENT_TEAM = 44PNL785M7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "\"SilentCircle needs your location to automatically silence your device when you enter your saved locations. This helps maintain your quiet zones even when the app is in the background.\"";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "\"SilentCircle needs your location to set up and manage your silent zones.\"";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
