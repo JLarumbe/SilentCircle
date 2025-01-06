@@ -112,13 +112,9 @@ struct AddGeofenceView: View {
                                 .background(Color(.systemGray6))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .focused($isFocused)
-                                .onChange(of: isFocused) { oldValue, newValue in
-                                    if !newValue {
-                                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), 
-                                                                     to: nil, 
-                                                                     from: nil, 
-                                                                     for: nil)
-                                    }
+                                .animation(.easeOut(duration: 0.2), value: isFocused)
+                                .transaction { transaction in
+                                    transaction.animation = .easeOut(duration: 0.2)
                                 }
                             
                             // Location Info
