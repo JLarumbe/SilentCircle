@@ -14,9 +14,9 @@ struct GeofenceListView: View {
         ZStack {
             if viewModel.geofences.isEmpty {
                 GeofenceEmptyStateView(
-                    title: "No Geofences",
+                    title: "No Silent Circles",
                     systemImage: "location.circle",
-                    description: "Add your first geofence to get started"
+                    description: "Add your first Silent Circle to get started"
                 )
             } else {
                 List {
@@ -36,7 +36,7 @@ struct GeofenceListView: View {
                 .listStyle(.insetGrouped)
             }
         }
-        .navigationTitle("Geofences")
+        .navigationTitle("Silent Circles")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

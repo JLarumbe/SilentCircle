@@ -99,7 +99,7 @@ struct AddGeofenceView: View {
                 VStack(spacing: 20) {
                     // Header without close button
                     HStack {
-                        Text("New Geofence")
+                        Text("New Silent Circle")
                             .font(.title3.weight(.semibold))
                         Spacer()
                     }
@@ -186,6 +186,9 @@ struct AddGeofenceView: View {
                                         .foregroundStyle(.blue)
                                     Slider(value: $viewModel.radius, in: 10...500, step: 10)
                                         .tint(.blue)
+                                        .onChange(of: viewModel.radius) { _ in
+                                            isFocused = false  // Dismiss keyboard when radius is changed
+                                        }
                                     Image(systemName: "circle")
                                         .foregroundStyle(.blue)
                                 }
@@ -200,7 +203,7 @@ struct AddGeofenceView: View {
                                 print("Creating geofence: \(viewModel.name) at \(viewModel.latitude), \(viewModel.longitude) with radius \(viewModel.radius)")
                                 dismiss()
                             }) {
-                                Text("Create Geofence")
+                                Text("Create Silent Circle")
                                     .font(.headline)
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)

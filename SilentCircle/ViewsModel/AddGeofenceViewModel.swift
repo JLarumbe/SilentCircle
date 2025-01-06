@@ -16,7 +16,7 @@ class AddGeofenceViewModel: ObservableObject {
     @Published var isActive = true
     @Published var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
-        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        span: MKCoordinateSpan(latitudeDelta: 0.0010, longitudeDelta: 0.0010)
     )
     
     private let geofenceListViewModel: GeofenceListViewModel
