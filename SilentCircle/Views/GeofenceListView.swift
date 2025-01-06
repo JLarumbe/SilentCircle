@@ -40,8 +40,9 @@ struct GeofenceListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: AddGeofenceView(viewModel: viewModel)
-                    .navigationBarBackButtonHidden(true)) {
+                NavigationLink {
+                    AddGeofenceView(geofenceListViewModel: viewModel)
+                } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.blue)

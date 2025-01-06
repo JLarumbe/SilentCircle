@@ -4,43 +4,45 @@
 //
 //  Created by Jorge Larumbe on 1/5/25.
 //
-
 import SwiftUI
 import MapKit
 
 struct AddGeofenceView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject var viewModel: GeofenceListViewModel
+    @StateObject private var viewModel: AddGeofenceViewModel
     
-    @State private var name: String = ""
-    @State private var radius: Double = 10.0
-    @State private var latitude: Double = 0.0
-    @State private var longitude: Double = 0.0
-    @State private var isActive = true
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
-        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-    )
     @State private var showingLocationSearch = false
     @State private var cardOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
     
+    init(geofenceListViewModel: GeofenceListViewModel) {
+        _viewModel = StateObject(wrappedValue: AddGeofenceViewModel(geofenceListViewModel: geofenceListViewModel))
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 // Map View with precise pin - exactly 50% height
-                Map(coordinateRegion: $region, showsUserLocation: true)
+                Map(coordinateRegion: $viewModel.region, showsUserLocation: true)
                     .frame(height: geometry.size.height * 0.5)
                     .onAppear {
-                        latitude = region.center.latitude
-                        longitude = region.center.longitude
+                        viewModel.updateLocation(
+                            latitude: viewModel.region.center.latitude,
+                            longitude: viewModel.region.center.longitude
+                        )
                     }
-                    .onChange(of: region.center.latitude) { newLatitude in
-                        latitude = newLatitude
+                    .onChange(of: viewModel.region.center.latitude) { _ in
+                        viewModel.updateLocation(
+                            latitude: viewModel.region.center.latitude,
+                            longitude: viewModel.region.center.longitude
+                        )
                     }
-                    .onChange(of: region.center.longitude) { newLongitude in
-                        longitude = newLongitude
+                    .onChange(of: viewModel.region.center.longitude) { _ in
+                        viewModel.updateLocation(
+                            latitude: viewModel.region.center.latitude,
+                            longitude: viewModel.region.center.longitude
+                        )
                     }
                     .overlay {
                         // Radius Circle
@@ -50,7 +52,7 @@ struct AddGeofenceView: View {
                                 Circle()
                                     .fill(.blue.opacity(0.1))
                             )
-                            .frame(width: radiusToPoints(), height: radiusToPoints())
+                            .frame(width: viewModel.radiusToPoints(), height: viewModel.radiusToPoints())
                             .allowsHitTesting(false)
                         
                         // Precise location indicator
@@ -106,7 +108,7 @@ struct AddGeofenceView: View {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
                             // Name Field
-                            TextField("Location Nickname", text: $name)
+                            TextField("Location Nickname", text: $viewModel.name)
                                 .textFieldStyle(.plain)
                                 .padding()
                                 .background(Color(.systemGray6))
@@ -131,7 +133,7 @@ struct AddGeofenceView: View {
                                     Text("Location")
                                         .font(.headline)
                                         .foregroundStyle(.primary)
-                                    Text(latitude == 0 ? "Move map to set location" : "Location selected")
+                                    Text(viewModel.latitude == 0 ? "Move map to set location" : "Location selected")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -174,7 +176,7 @@ struct AddGeofenceView: View {
                                         .font(.subheadline.weight(.medium))
                                         .foregroundStyle(.secondary)
                                     Spacer()
-                                    Text("\(Int(radius))m")
+                                    Text("\(Int(viewModel.radius))m")
                                         .font(.subheadline.monospacedDigit())
                                         .foregroundStyle(.secondary)
                                 }
@@ -182,7 +184,7 @@ struct AddGeofenceView: View {
                                 HStack(spacing: 12) {
                                     Image(systemName: "circle.dotted")
                                         .foregroundStyle(.blue)
-                                    Slider(value: $radius, in: 10...500, step: 10)
+                                    Slider(value: $viewModel.radius, in: 10...500, step: 10)
                                         .tint(.blue)
                                     Image(systemName: "circle")
                                         .foregroundStyle(.blue)
@@ -194,13 +196,8 @@ struct AddGeofenceView: View {
                             
                             // Create Button
                             Button(action: {
-                                viewModel.addGeofence(
-                                    name: name,
-                                    latitude: latitude,
-                                    longitude: longitude,
-                                    radius: radius
-                                )
-                                print("Geofence created: \(name) at \(latitude), \(longitude) with radius \(radius)m")
+                                viewModel.createGeofence()
+                                print("Creating geofence: \(viewModel.name) at \(viewModel.latitude), \(viewModel.longitude) with radius \(viewModel.radius)")
                                 dismiss()
                             }) {
                                 Text("Create Geofence")
@@ -210,10 +207,10 @@ struct AddGeofenceView: View {
                                     .frame(height: 50)
                                     .background(
                                         RoundedRectangle(cornerRadius: 12)
-                                            .fill(name.isEmpty || latitude == 0 ? Color.gray.opacity(0.5) : Color.blue)
-                                        )
+                                            .fill(viewModel.isValidGeofence ? Color.blue : Color.gray.opacity(0.5))
+                                    )
                             }
-                            .disabled(name.isEmpty || latitude == 0)
+                            .disabled(!viewModel.isValidGeofence)
                             .padding(.top, 8)
                         }
                     }
@@ -251,23 +248,20 @@ struct AddGeofenceView: View {
         }
         .sheet(isPresented: $showingLocationSearch) {
             LocationSearchView { name, coordinate in
-                region.center = coordinate
-                latitude = coordinate.latitude
-                longitude = coordinate.longitude
+                viewModel.region.center = coordinate
+                viewModel.updateLocation(
+                    latitude: coordinate.latitude,
+                    longitude: coordinate.longitude
+                )
                 showingLocationSearch = false  // Dismiss the sheet after selection
             }
         }
-    }
-    
-    private func radiusToPoints() -> CGFloat {
-        let metersPerPoint = region.span.longitudeDelta * 111000 / UIScreen.main.bounds.width
-        return (radius * 2) / metersPerPoint
     }
 }
 
 #Preview {
     NavigationView {
-        AddGeofenceView(viewModel: GeofenceListViewModel(viewContext: PersistenceController.preview.container.viewContext))
+        AddGeofenceView(geofenceListViewModel: GeofenceListViewModel(viewContext: PersistenceController.preview.container.viewContext))
     }
 }
 
