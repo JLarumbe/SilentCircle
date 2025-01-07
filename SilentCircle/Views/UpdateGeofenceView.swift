@@ -107,6 +107,29 @@ struct UpdateGeofenceView: View {
                         Text("Update Silent Circle")
                             .font(.title3.weight(.semibold))
                         Spacer()
+                        
+                        Button(action: {
+                            print("🔵 Button pressed")
+                            if viewModel.isValidGeofence {
+                                print("🟢 Geofence is valid")
+                                updateGeofence()
+                            } else {
+                                print("🔴 Geofence is invalid")
+                                print("Name empty: \(!viewModel.name.isEmpty)")
+                                print("Latitude zero: \(viewModel.latitude == 0)")
+                            }
+                        }) {
+                            Text("Update")
+                                .font(.headline)
+                                .foregroundStyle(viewModel.isValidGeofence ? .blue : .gray)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(.ultraThinMaterial)
+                                )
+                        }
+                        .disabled(!viewModel.isValidGeofence)
                     }
                     
                     ScrollView(showsIndicators: false) {
@@ -220,30 +243,6 @@ struct UpdateGeofenceView: View {
                             .padding()
                             .background(Color(.systemGray6))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                            
-                            Button(action: {
-                                print("🔵 Button pressed")
-                                if viewModel.isValidGeofence {
-                                    print("🟢 Geofence is valid")
-                                    updateGeofence()
-                                } else {
-                                    print("🔴 Geofence is invalid")
-                                    print("Name empty: \(!viewModel.name.isEmpty)")
-                                    print("Latitude zero: \(viewModel.latitude == 0)")
-                                }
-                            }) {
-                                Text("Update Silent Circle")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 50)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(viewModel.isValidGeofence ? Color.blue : Color.gray.opacity(0.5))
-                                    )
-                            }
-                            .disabled(!viewModel.isValidGeofence)
-                            .padding(.top, 8)
                         }
                     }
                 }
