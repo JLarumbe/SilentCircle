@@ -6,11 +6,13 @@
 //
 
 import CoreData
+import Combine
 
 // PersistenceController manages the Core Data stack for the entire app
 class PersistenceController {
     // Shared singleton instance that can be accessed throughout the app
     static let shared = PersistenceController()
+    private var cancellables = Set<AnyCancellable>()
 
     // Creates a preview instance with sample data for SwiftUI previews
     // @MainActor ensures this runs on the main thread where UI updates happen
@@ -51,65 +53,32 @@ class PersistenceController {
 
     // The NSPersistentContainer handles the Core Data stack including
     // the managed object model, persistent store coordinator, and context
-    let container: NSPersistentContainer
+    lazy var container: NSPersistentContainer = {
+        let container = NSPersistentContainer(name: "SilentCircle")
+        container.loadPersistentStores { description, error in
+            if let error = error {
+                fatalError("Unable to load persistent stores: \(error)")
+            }
+            // Configure the view context after loading
+            let viewContext = container.viewContext
+            viewContext.automaticallyMergesChangesFromParent = true
+            viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        }
+        return container
+    }()
 
     // Add property to track save state
     private var isSaving = false
-    private var saveWorkItem: DispatchWorkItem?
 
     // Initialize the Core Data stack
     init(inMemory: Bool = false) {
-        // Create container with our model name
-        container = NSPersistentContainer(name: "SilentCircle")
-        
         // For previews, use an in-memory store instead of writing to disk
         if inMemory {
             container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
         }
         
-        // Load the persistent stores
-        container.loadPersistentStores(completionHandler: { (storeDescription, error) in
-            if let error = error as NSError? {
-                // Common error cases:
-                // - Directory permissions issues
-                // - Device locked/data protection
-                // - Insufficient storage
-                // - Model version migration failures
-                fatalError("Unresolved error \(error), \(error.userInfo)")
-            }
-        })
-        
-        // Configure the view context
-        let viewContext = container.viewContext
-        viewContext.automaticallyMergesChangesFromParent = true
-        viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-        
-        // Modified auto-save with better notification filtering
-        NotificationCenter.default.addObserver(
-            forName: .NSManagedObjectContextObjectsDidChange,
-            object: viewContext,  // Only observe this specific context
-            queue: .main
-        ) { [weak self] notification in
-            guard let self = self,
-                  !self.isSaving,
-                  let context = notification.object as? NSManagedObjectContext,
-                  context == viewContext,
-                  // Only save if there are actual changes, not during a save operation
-                  let userInfo = notification.userInfo,
-                  let inserts = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject>,
-                  let updates = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject>,
-                  let deletes = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject>,
-                  (!inserts.isEmpty || !updates.isEmpty || !deletes.isEmpty)
-            else { return }
-            
-            self.isSaving = true
-            do {
-                try viewContext.save()
-            } catch {
-                print("❌ Error auto-saving context: \(error)")
-            }
-            self.isSaving = false
-        }
+        // Optimized observer setup
+        setupObservers()
     }
     
     // Helper method to create a new background context
@@ -125,12 +94,37 @@ class PersistenceController {
         let context = container.viewContext
         guard !isSaving, context.hasChanges else { return }
         
+        Task {
+            await save(context: context)
+        }
+    }
+    
+    private func save(context: NSManagedObjectContext) async {
+        guard !isSaving else { return }
         isSaving = true
+        
         do {
-            try context.save()
+            try await context.perform {
+                try context.save()
+            }
         } catch {
             print("❌ Error saving context: \(error)")
         }
+        
         isSaving = false
+    }
+    
+    // Optimized observer setup
+    private func setupObservers() {
+        NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)
+            .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let context = notification.object as? NSManagedObjectContext,
+                      context == self.container.viewContext else { return }
+                
+                self.saveIfNeeded()
+            }
+            .store(in: &cancellables)
     }
 }

@@ -60,7 +60,9 @@ struct GeofenceListView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)) { _ in
             print("💾 Context did save - refreshing data")
             viewContext.refreshAllObjects()
-            viewModel.fetchGeofences()
+            Task {
+                await viewModel.fetchGeofences()
+            }
         }
     }
 }

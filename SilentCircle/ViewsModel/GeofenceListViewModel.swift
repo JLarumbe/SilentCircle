@@ -8,27 +8,33 @@ class GeofenceListViewModel: ObservableObject {
     
     init(viewContext: NSManagedObjectContext) {
         self.viewContext = viewContext
-        fetchGeofences()
+        Task {
+            await fetchGeofences()
+        }
     }
     
-    func fetchGeofences() {
+    func fetchGeofences() async {
         let request = NSFetchRequest<Geofence>(entityName: "Geofence")
         request.sortDescriptors = [NSSortDescriptor(keyPath: \Geofence.name, ascending: true)]
         
         do {
-            self.geofences = try viewContext.fetch(request)
-            print("✅ Fetched \(geofences.count) geofences")
+            self.geofences = try await viewContext.perform {
+                try request.execute()
+            }
+            print("✅ Fetched \(self.geofences.count) geofences")
         } catch {
             print("❌ Error fetching geofences: \(error)")
         }
     }
     
     func deleteItems(at offsets: [Int]) {
-        for index in offsets {
-            viewContext.delete(geofences[index])
+        Task {
+            for index in offsets {
+                viewContext.delete(geofences[index])
+            }
+            
+            PersistenceController.shared.saveIfNeeded()
+            await fetchGeofences()
         }
-        
-        PersistenceController.shared.saveIfNeeded()
-        fetchGeofences()
     }
 } 

@@ -203,9 +203,10 @@ struct AddGeofenceView: View {
                             
                             // Create Button
                             Button(action: {
-                                viewModel.createGeofence()
-                                print("Creating geofence: \(viewModel.name) at \(viewModel.latitude), \(viewModel.longitude) with radius \(viewModel.radius)")
-                                dismiss()
+                                Task {
+                                    await viewModel.createGeofence()
+                                    dismiss()
+                                }
                             }) {
                                 Text("Create Silent Circle")
                                     .font(.headline)

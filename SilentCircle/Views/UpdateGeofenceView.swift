@@ -10,10 +10,10 @@ import MapKit
 import CoreData
 
 struct UpdateGeofenceView: View {
+    @StateObject private var locationManager = LocationManager()
     @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var viewContext
-    @StateObject private var viewModel: AddGeofenceViewModel
-    @StateObject private var locationManager = LocationManager()
+    @StateObject private var viewModel: UpdateGeofenceViewModel
     let geofence: Geofence
     
     @State private var showingLocationSearch = false
@@ -25,9 +25,10 @@ struct UpdateGeofenceView: View {
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext, geofence: Geofence) {
         self.geofence = geofence
-        _viewModel = StateObject(wrappedValue: AddGeofenceViewModel(
+        _viewModel = StateObject(wrappedValue: UpdateGeofenceViewModel(
             geofenceListViewModel: geofenceListViewModel,
-            viewContext: viewContext
+            viewContext: viewContext,
+            geofence: geofence
         ))
         
         // Initialize map position with existing geofence location
@@ -306,20 +307,17 @@ struct UpdateGeofenceView: View {
     }
     
     private func updateGeofence() {
-        geofence.name = viewModel.name
-        geofence.latitude = viewModel.latitude
-        geofence.longitude = viewModel.longitude
-        geofence.radius = viewModel.radius
-        geofence.isActive = viewModel.isActive
-        
-        // Use PersistenceController's save method
-        PersistenceController.shared.saveIfNeeded()
-        print("✅ Context saved successfully")
-        
-        // Add this line to refresh the list
-        viewModel.geofenceListViewModel.fetchGeofences()
-        
-        dismiss()
+        Task {
+            geofence.name = viewModel.name
+            geofence.latitude = viewModel.latitude
+            geofence.longitude = viewModel.longitude
+            geofence.radius = viewModel.radius
+            geofence.isActive = viewModel.isActive
+            
+            PersistenceController.shared.saveIfNeeded()
+            await viewModel.geofenceListViewModel.fetchGeofences()
+            dismiss()
+        }
     }
 }
 

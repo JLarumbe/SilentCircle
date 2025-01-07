@@ -38,17 +38,15 @@ class UpdateGeofenceViewModel: ObservableObject {
         self.longitude = longitude
     }
     
-    func updateGeofence() {
+    func updateGeofence() async {
         geofence.name = name
         geofence.latitude = latitude
         geofence.longitude = longitude
         geofence.radius = radius
         geofence.isActive = isActive
         
-        // Use PersistenceController's save method
         PersistenceController.shared.saveIfNeeded()
-        print("✅ Context saved successfully")
-        geofenceListViewModel.fetchGeofences()
+        await geofenceListViewModel.fetchGeofences()
     }
     
     var isValidGeofence: Bool {

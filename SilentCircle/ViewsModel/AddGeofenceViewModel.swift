@@ -33,7 +33,7 @@ class AddGeofenceViewModel: ObservableObject {
         self.longitude = longitude
     }
     
-    func createGeofence() {
+    func createGeofence() async {
         let newGeofence = Geofence(context: viewContext)
         newGeofence.id = UUID()
         newGeofence.name = name
@@ -43,7 +43,7 @@ class AddGeofenceViewModel: ObservableObject {
         newGeofence.isActive = true
         
         PersistenceController.shared.saveIfNeeded()
-        geofenceListViewModel.fetchGeofences()
+        await geofenceListViewModel.fetchGeofences()
     }
     
     func radiusToPoints() -> CGFloat {
