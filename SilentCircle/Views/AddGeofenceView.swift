@@ -6,9 +6,11 @@
 //
 import SwiftUI
 import MapKit
+import CoreData
 
 struct AddGeofenceView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var viewModel: AddGeofenceViewModel
     @StateObject private var locationManager = LocationManager()
     
@@ -24,8 +26,11 @@ struct AddGeofenceView: View {
         pitch: 0
     ))
     
-    init(geofenceListViewModel: GeofenceListViewModel) {
-        _viewModel = StateObject(wrappedValue: AddGeofenceViewModel(geofenceListViewModel: geofenceListViewModel))
+    init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext) {
+        _viewModel = StateObject(wrappedValue: AddGeofenceViewModel(
+            geofenceListViewModel: geofenceListViewModel,
+            viewContext: viewContext
+        ))
     }
     
     var body: some View {
@@ -273,8 +278,14 @@ struct AddGeofenceView: View {
 }
 
 #Preview {
-    NavigationView {
-        AddGeofenceView(geofenceListViewModel: GeofenceListViewModel(viewContext: PersistenceController.preview.container.viewContext))
+    let viewContext = PersistenceController.preview.container.viewContext
+    let geofenceListViewModel = GeofenceListViewModel(viewContext: viewContext)
+    
+    return NavigationView {
+        AddGeofenceView(
+            geofenceListViewModel: geofenceListViewModel,
+            viewContext: viewContext
+        )
     }
 }
 

@@ -6,6 +6,7 @@
 //
 import SwiftUI
 import MapKit
+import CoreData
 
 @MainActor
 class AddGeofenceViewModel: ObservableObject {
@@ -20,9 +21,11 @@ class AddGeofenceViewModel: ObservableObject {
     ))
     
     private let geofenceListViewModel: GeofenceListViewModel
+    private let viewContext: NSManagedObjectContext
     
-    init(geofenceListViewModel: GeofenceListViewModel) {
+    init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext) {
         self.geofenceListViewModel = geofenceListViewModel
+        self.viewContext = viewContext
     }
     
     func updateLocation(latitude: Double, longitude: Double) {
@@ -31,12 +34,20 @@ class AddGeofenceViewModel: ObservableObject {
     }
     
     func createGeofence() {
-        geofenceListViewModel.addGeofence(
-            name: name,
-            latitude: latitude,
-            longitude: longitude,
-            radius: radius
-        )
+        let newGeofence = Geofence(context: viewContext)
+        newGeofence.id = UUID()
+        newGeofence.name = name
+        newGeofence.latitude = latitude
+        newGeofence.longitude = longitude
+        newGeofence.radius = radius
+        newGeofence.isActive = true
+        
+        do {
+            try viewContext.save()
+            geofenceListViewModel.fetchGeofences()
+        } catch {
+            print("Error adding geofence: \(error)")
+        }
     }
     
     func radiusToPoints() -> CGFloat {

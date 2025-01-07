@@ -41,7 +41,10 @@ struct GeofenceListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink {
-                    AddGeofenceView(geofenceListViewModel: viewModel)
+                    AddGeofenceView(
+                        geofenceListViewModel: viewModel,
+                        viewContext: viewContext
+                    )
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 20, weight: .semibold))
