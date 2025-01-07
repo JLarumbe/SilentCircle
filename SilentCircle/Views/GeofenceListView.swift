@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreData
 import MapKit
+import Combine
 
 struct GeofenceListView: View {
     @Environment(\.managedObjectContext) private var viewContext
@@ -55,14 +56,14 @@ struct GeofenceListView: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
+                .isDetailLink(false)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)) { _ in
-            print("💾 Context did save - refreshing data")
-            viewContext.refreshAllObjects()
-            Task {
-                await viewModel.fetchGeofences()
-            }
+        .onAppear {
+            viewModel.startObserving()
+        }
+        .onDisappear {
+            viewModel.stopObserving()
         }
     }
 }

@@ -7,95 +7,146 @@
 import SwiftUI
 import MapKit
 import CoreData
+import Combine
+
 
 struct AddGeofenceView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var viewModel: AddGeofenceViewModel
-    @StateObject private var locationManager = LocationManager()
-    
     @State private var showingLocationSearch = false
     @State private var cardOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
     @State private var is3DEnabled = false
-    @State private var mapPosition: MapCameraPosition = .camera(MapCamera(
-        centerCoordinate: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
-        distance: 1000,
-        heading: 0,
-        pitch: 0
+    @State private var mapPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
+        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)  // ✅ More zoomed in (was 0.05)
     ))
+    @State private var currentCoordinate: CLLocationCoordinate2D
+    
+    private var keyboardPublisher: AnyPublisher<CGFloat, Never> {
+        Publishers.Merge(
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+                .map { ($0.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0 },
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+                .map { _ in CGFloat(0) }
+        )
+        .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
+        .eraseToAnyPublisher()
+    }
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext) {
         _viewModel = StateObject(wrappedValue: AddGeofenceViewModel(
             geofenceListViewModel: geofenceListViewModel,
             viewContext: viewContext
         ))
+        _currentCoordinate = State(initialValue: CLLocationCoordinate2D(
+            latitude: 37.3346,
+            longitude: -122.0090
+        ))
     }
     
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                // Map View with precise pin - adjusted to 45% height
-                Map(position: $mapPosition) {
-                    // Get coordinates from camera position
-                    let coordinate = mapPosition.camera?.centerCoordinate ?? CLLocationCoordinate2D(
-                        latitude: viewModel.latitude,
-                        longitude: viewModel.longitude
-                    )
-                    
-                    // Always show the marker and circle
-                    Marker("Silent Circle Location", coordinate: coordinate)
-                        .tint(.blue)
-                    
-                    MapCircle(center: coordinate, radius: viewModel.radius)
-                        .foregroundStyle(.blue.opacity(0.15))
-                        .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-                }
-                .mapStyle(.standard(elevation: .realistic))
-                .overlay(alignment: .bottomTrailing) {
-                    VStack(spacing: 8) {
-                        // Custom Location Button
-                        Button(action: {
-                            Task {
-                                locationManager.requestLocation()
-                                // Wait a moment for location update
-                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                                
-                                await MainActor.run {
-                                    if let location = locationManager.userLocation {
-                                        // Remove withAnimation for instant camera movement
-                                        mapPosition = .camera(MapCamera(
-                                            centerCoordinate: location.coordinate,
-                                            distance: 1000,
-                                            heading: 0,
-                                            pitch: 0
-                                        ))
-                                        viewModel.updateLocation(
-                                            latitude: location.coordinate.latitude,
-                                            longitude: location.coordinate.longitude
-                                        )
-                                    }
-                                }
+                if #available(iOS 17.0, *) {
+                    MapReader { proxy in
+                        Map(position: $mapPosition) {
+                            Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
+                                .tint(.blue)
+                            
+                            MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
+                                .foregroundStyle(.blue.opacity(0.15))
+                                .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                        }
+                        .onTapGesture { location in
+                            if let coordinate = proxy.convert(location, from: .local) {
+                                viewModel.handleMapTap(coordinate: coordinate)
                             }
-                        }) {
-                            Image(systemName: "location.fill")
-                                .foregroundStyle(.primary)
-                                .frame(width: 40, height: 40)
-                                .background(.thinMaterial)
-                                .clipShape(Circle())
-                                .shadow(radius: 2)
                         }
                     }
-                    .padding()
-                }
-                .frame(height: geometry.size.height * 0.45)
-                .onMapCameraChange(frequency: .continuous) { context in
-                    // Update the viewModel with new coordinates
-                    viewModel.updateLocation(
-                        latitude: context.camera.centerCoordinate.latitude,
-                        longitude: context.camera.centerCoordinate.longitude
-                    )
+                    .mapStyle(.standard(elevation: .realistic))
+                    .overlay(alignment: Alignment.bottomTrailing) {
+                        VStack(spacing: 8) {
+                            // Only keep the location button
+                            Button(action: {
+                                Task {
+                                    viewModel.requestLocation()
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    
+                                    await MainActor.run {
+                                        if let location = viewModel.userLocation {
+                                            mapPosition = .camera(MapCamera(
+                                                centerCoordinate: location.coordinate,
+                                                distance: 1000,
+                                                heading: 0,
+                                                pitch: 0
+                                            ))
+                                            viewModel.updateLocation(
+                                                latitude: location.coordinate.latitude,
+                                                longitude: location.coordinate.longitude
+                                            )
+                                        }
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "location.fill")
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 40, height: 40)
+                                    .background(.thinMaterial)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 2)
+                            }
+                        }
+                        .padding()
+                    }
+                    .frame(height: geometry.size.height * 0.45)
+                } else {
+                    // Fallback for earlier versions
+                    Map(position: $mapPosition, interactionModes: .all) {
+                        Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
+                            .tint(.blue)
+                        
+                        MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
+                            .foregroundStyle(.blue.opacity(0.15))
+                            .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                    }
+                    .overlay(alignment: Alignment.bottomTrailing) {
+                        VStack(spacing: 8) {
+                            // Only keep the location button
+                            Button(action: {
+                                Task {
+                                    viewModel.requestLocation()
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    
+                                    await MainActor.run {
+                                        if let location = viewModel.userLocation {
+                                            mapPosition = .camera(MapCamera(
+                                                centerCoordinate: location.coordinate,
+                                                distance: 1000,
+                                                heading: 0,
+                                                pitch: 0
+                                            ))
+                                            viewModel.updateLocation(
+                                                latitude: location.coordinate.latitude,
+                                                longitude: location.coordinate.longitude
+                                            )
+                                        }
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "location.fill")
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 40, height: 40)
+                                    .background(.thinMaterial)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 2)
+                            }
+                        }
+                        .padding()
+                    }
+                    .frame(height: geometry.size.height * 0.45)
                 }
                 
                 // Control Panel - exactly 50% height
@@ -232,6 +283,11 @@ struct AddGeofenceView: View {
                 .transaction { transaction in
                     transaction.animation = .none
                 }
+                .onChange(of: isFocused || keyboardHeight > 0) { oldValue, newValue in
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        cardOffset = newValue ? -keyboardHeight : 0
+                    }
+                }
             }
         }
         .ignoresSafeArea()
@@ -252,12 +308,10 @@ struct AddGeofenceView: View {
             }
         }
         .onAppear {
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
-                let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect ?? .zero
-                keyboardHeight = keyboardFrame.height
-            }
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
-                keyboardHeight = 0
+            viewModel.setupKeyboardObservers(publisher: keyboardPublisher) { height in
+                withAnimation(.easeOut(duration: 0.3)) {
+                    keyboardHeight = height
+                }
             }
         }
         .sheet(isPresented: $showingLocationSearch) {
@@ -275,6 +329,27 @@ struct AddGeofenceView: View {
                 showingLocationSearch = false
             })
         }
+    }
+    
+    private func convertToCoordinate(_ point: CGPoint, in geometry: GeometryProxy) -> CLLocationCoordinate2D? {
+        guard let region = viewModel.getCurrentRegion() else { return nil }
+        
+        let mapFrame = geometry.frame(in: .local)
+        
+        // Convert point to normalized coordinates (0-1)
+        let normalizedPoint = CGPoint(
+            x: point.x / mapFrame.width,
+            y: point.y / mapFrame.height
+        )
+        
+        // Convert to map coordinates
+        let span = region.span
+        let center = region.center
+        
+        let latitude = center.latitude + (0.5 - normalizedPoint.y) * span.latitudeDelta
+        let longitude = center.longitude + (normalizedPoint.x - 0.5) * span.longitudeDelta
+        
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 }
 

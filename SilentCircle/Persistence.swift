@@ -13,6 +13,7 @@ class PersistenceController {
     // Shared singleton instance that can be accessed throughout the app
     static let shared = PersistenceController()
     private var cancellables = Set<AnyCancellable>()
+    private let saveSubject = PassthroughSubject<Void, Never>()
 
     // Creates a preview instance with sample data for SwiftUI previews
     // @MainActor ensures this runs on the main thread where UI updates happen
@@ -79,6 +80,7 @@ class PersistenceController {
         
         // Optimized observer setup
         setupObservers()
+        setupSavePublisher()
     }
     
     // Helper method to create a new background context
@@ -91,22 +93,15 @@ class PersistenceController {
     // Remove automatic saving and provide explicit save methods
     
     func saveIfNeeded() {
-        let context = container.viewContext
-        guard !isSaving, context.hasChanges else { return }
-        
-        Task {
-            await save(context: context)
-        }
+        saveSubject.send()
     }
     
-    private func save(context: NSManagedObjectContext) async {
+    private func save() {
         guard !isSaving else { return }
         isSaving = true
         
         do {
-            try await context.perform {
-                try context.save()
-            }
+            try container.viewContext.save()
         } catch {
             print("❌ Error saving context: \(error)")
         }
@@ -124,6 +119,15 @@ class PersistenceController {
                       context == self.container.viewContext else { return }
                 
                 self.saveIfNeeded()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func setupSavePublisher() {
+        saveSubject
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.save()
             }
             .store(in: &cancellables)
     }

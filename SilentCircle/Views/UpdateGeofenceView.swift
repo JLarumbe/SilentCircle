@@ -37,7 +37,7 @@ struct UpdateGeofenceView: View {
                 latitude: geofence.latitude,
                 longitude: geofence.longitude
             ),
-            distance: 1000,
+            distance: 500,
             heading: 0,
             pitch: 0
         )))
@@ -46,60 +46,69 @@ struct UpdateGeofenceView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                // Map View with precise pin - adjusted to 45% height
-                Map(position: $mapPosition) {
-                    let coordinate = mapPosition.camera?.centerCoordinate ?? CLLocationCoordinate2D(
-                        latitude: viewModel.latitude,
-                        longitude: viewModel.longitude
-                    )
-                    
-                    Marker("Silent Circle Location", coordinate: coordinate)
-                        .tint(.blue)
-                    
-                    MapCircle(center: coordinate, radius: viewModel.radius)
-                        .foregroundStyle(.blue.opacity(0.15))
-                        .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-                }
-                .mapStyle(.standard(elevation: .realistic))
-                .overlay(alignment: .bottomTrailing) {
-                    VStack(spacing: 8) {
-                        Button(action: {
-                            Task {
-                                locationManager.requestLocation()
-                                try? await Task.sleep(nanoseconds: 500_000_000)
-                                
-                                await MainActor.run {
-                                    if let location = locationManager.userLocation {
-                                        mapPosition = .camera(MapCamera(
-                                            centerCoordinate: location.coordinate,
-                                            distance: 1000,
-                                            heading: 0,
-                                            pitch: 0
-                                        ))
-                                        viewModel.updateLocation(
-                                            latitude: location.coordinate.latitude,
-                                            longitude: location.coordinate.longitude
-                                        )
-                                    }
-                                }
+                if #available(iOS 17.0, *) {
+                    MapReader { proxy in
+                        Map(position: $mapPosition) {
+                            Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
+                                .tint(.blue)
+                            
+                            MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
+                                .foregroundStyle(.blue.opacity(0.15))
+                                .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                        }
+                        .onTapGesture { location in
+                            if let coordinate = proxy.convert(location, from: .local) {
+                                viewModel.handleMapTap(coordinate: coordinate)
                             }
-                        }) {
-                            Image(systemName: "location.fill")
-                                .foregroundStyle(.primary)
-                                .frame(width: 40, height: 40)
-                                .background(.thinMaterial)
-                                .clipShape(Circle())
-                                .shadow(radius: 2)
                         }
                     }
-                    .padding()
-                }
-                .frame(height: geometry.size.height * 0.45)
-                .onMapCameraChange(frequency: .continuous) { context in
-                    viewModel.updateLocation(
-                        latitude: context.camera.centerCoordinate.latitude,
-                        longitude: context.camera.centerCoordinate.longitude
-                    )
+                    .mapStyle(.standard(elevation: .realistic))
+                    .overlay(alignment: .bottomTrailing) {
+                        VStack(spacing: 8) {
+                            Button(action: {
+                                Task {
+                                    locationManager.requestLocation()
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    
+                                    await MainActor.run {
+                                        if let location = locationManager.userLocation {
+                                            mapPosition = .camera(MapCamera(
+                                                centerCoordinate: location.coordinate,
+                                                distance: 1000,
+                                                heading: 0,
+                                                pitch: 0
+                                            ))
+                                            viewModel.updatePinLocation(coordinate: location.coordinate)
+                                        }
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "location.fill")
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 40, height: 40)
+                                    .background(.thinMaterial)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 2)
+                            }
+                        }
+                        .padding()
+                    }
+                    .frame(height: geometry.size.height * 0.45)
+                } else {
+                    // Fallback for earlier versions
+                    Map(position: $mapPosition) {
+                        Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
+                            .tint(.blue)
+                        
+                        MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
+                            .foregroundStyle(.blue.opacity(0.15))
+                            .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                    }
+                    .onTapGesture { location in
+                        if let coordinate = convertToCoordinate(location, in: geometry) {
+                            viewModel.handleMapTap(coordinate: coordinate)
+                        }
+                    }
                 }
                 
                 // Control Panel - exactly 50% height
@@ -318,6 +327,27 @@ struct UpdateGeofenceView: View {
             await viewModel.geofenceListViewModel.fetchGeofences()
             dismiss()
         }
+    }
+    
+    private func convertToCoordinate(_ point: CGPoint, in geometry: GeometryProxy) -> CLLocationCoordinate2D? {
+        guard let region = viewModel.getCurrentRegion() else { return nil }
+        
+        let mapFrame = geometry.frame(in: .local)
+        
+        // Convert point to normalized coordinates (0-1)
+        let normalizedPoint = CGPoint(
+            x: point.x / mapFrame.width,
+            y: point.y / mapFrame.height
+        )
+        
+        // Convert to map coordinates
+        let span = region.span
+        let center = region.center
+        
+        let latitude = center.latitude + (0.5 - normalizedPoint.y) * span.latitudeDelta
+        let longitude = center.longitude + (normalizedPoint.x - 0.5) * span.longitudeDelta
+        
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 }
 
