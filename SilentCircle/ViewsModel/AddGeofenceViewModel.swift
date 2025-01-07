@@ -20,7 +20,7 @@ class AddGeofenceViewModel: ObservableObject {
         span: MKCoordinateSpan(latitudeDelta: 0.0010, longitudeDelta: 0.0010)
     ))
     
-    private let geofenceListViewModel: GeofenceListViewModel
+    let geofenceListViewModel: GeofenceListViewModel
     private let viewContext: NSManagedObjectContext
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext) {
@@ -57,7 +57,7 @@ class AddGeofenceViewModel: ObservableObject {
     }
     
     var isValidGeofence: Bool {
-        !name.isEmpty && latitude != 0
+        !name.isEmpty
     }
     
     // New helper methods for iOS 17+

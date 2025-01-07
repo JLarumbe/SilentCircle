@@ -75,7 +75,27 @@ struct PersistenceController {
             }
         })
         
-        // Automatically merge changes from parent contexts
-        container.viewContext.automaticallyMergesChangesFromParent = true
+        // Configure the view context
+        let viewContext = container.viewContext
+        viewContext.automaticallyMergesChangesFromParent = true
+        viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        
+        // Set up automatic saving
+        NotificationCenter.default.addObserver(forName: .NSManagedObjectContextObjectsDidChange, object: nil, queue: .main) { _ in
+            if viewContext.hasChanges {
+                do {
+                    try viewContext.save()
+                } catch {
+                    print("❌ Error auto-saving context: \(error)")
+                }
+            }
+        }
+    }
+    
+    // Helper method to create a new background context
+    func newBackgroundContext() -> NSManagedObjectContext {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        return context
     }
 }

@@ -7,6 +7,7 @@ struct GeofenceListView: View {
     @StateObject private var viewModel: GeofenceListViewModel
     
     init(viewContext: NSManagedObjectContext) {
+        print("🏁 GeofenceListView init")
         _viewModel = StateObject(wrappedValue: GeofenceListViewModel(viewContext: viewContext))
     }
     
@@ -21,16 +22,20 @@ struct GeofenceListView: View {
             } else {
                 List {
                     ForEach(viewModel.geofences) { geofence in
-                        GeofenceRow(geofence: geofence)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    withAnimation {
-                                        viewModel.deleteItems(at: [viewModel.geofences.firstIndex(of: geofence)!])
-                                    }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                        GeofenceRow(
+                            geofence: geofence,
+                            geofenceListViewModel: viewModel,
+                            needsRefresh: .constant(false)
+                        )
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                withAnimation {
+                                    viewModel.deleteItems(at: [viewModel.geofences.firstIndex(of: geofence)!])
                                 }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
+                        }
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -39,13 +44,11 @@ struct GeofenceListView: View {
         .navigationTitle("Silent Circles")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink {
-                    AddGeofenceView(
-                        geofenceListViewModel: viewModel,
-                        viewContext: viewContext
-                    )
-                } label: {
+            ToolbarItem(placement: .primaryAction) {
+                NavigationLink(destination: AddGeofenceView(
+                    geofenceListViewModel: viewModel,
+                    viewContext: viewContext
+                )) {
                     Image(systemName: "plus")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.blue)
@@ -54,64 +57,72 @@ struct GeofenceListView: View {
                 }
             }
         }
-        .refreshable {
+        .onReceive(NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)) { _ in
+            print("💾 Context did save - refreshing data")
+            viewContext.refreshAllObjects()
             viewModel.fetchGeofences()
         }
     }
 }
 
 struct GeofenceRow: View {
-    let geofence: Geofence
+    @Environment(\.managedObjectContext) private var viewContext
+    @ObservedObject var geofence: Geofence
+    let geofenceListViewModel: GeofenceListViewModel
+    @Binding var needsRefresh: Bool
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Location Icon
-            ZStack {
-                Circle()
-                    .fill(Color.blue.opacity(0.1))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "location.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(.blue)
-            }
-            
-            // Location Details
-            VStack(alignment: .leading, spacing: 4) {
-                Text(geofence.name ?? "Unnamed Location")
-                    .font(.headline)
-                    .lineLimit(1)
-                
-                HStack(spacing: 12) {
-                    // Radius Badge
-                    HStack(spacing: 4) {
-                        Image(systemName: "circle.dashed")
-                            .font(.subheadline)
-                        Text("\(Int(geofence.radius))m")
-                            .font(.subheadline)
-                    }
-                    .foregroundStyle(.secondary)
-                    
-                    // Status Badge
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(geofence.isActive ? Color.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(geofence.isActive ? "Active" : "Inactive")
-                            .font(.subheadline)
-                    }
-                    .foregroundStyle(.secondary)
+        NavigationLink(destination: UpdateGeofenceView(
+            geofenceListViewModel: geofenceListViewModel,
+            viewContext: viewContext,
+            geofence: geofence
+        )) {
+            HStack(spacing: 16) {
+                // Location Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.1))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "location.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(.blue)
                 }
+                
+                // Location Details
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(geofence.name ?? "Unnamed Location")
+                        .font(.headline)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 12) {
+                        // Radius Badge
+                        HStack(spacing: 4) {
+                            Image(systemName: "circle.dashed")
+                                .font(.subheadline)
+                            Text("\(Int(geofence.radius))m")
+                                .font(.subheadline)
+                        }
+                        .foregroundStyle(.secondary)
+                        
+                        // Status Badge
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(geofence.isActive ? Color.green : Color.gray)
+                                .frame(width: 8, height: 8)
+                            Text(geofence.isActive ? "Active" : "Inactive")
+                                .font(.subheadline)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
             }
-            
-            Spacer()
-            
-            // Chevron
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.gray)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
+        .buttonStyle(PlainButtonStyle())
+        .id(geofence.objectID)
     }
 }
 
