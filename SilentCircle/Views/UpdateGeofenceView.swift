@@ -307,25 +307,20 @@ struct UpdateGeofenceView: View {
     }
     
     private func updateGeofence() {
-        // Update the geofence
         geofence.name = viewModel.name
         geofence.latitude = viewModel.latitude
         geofence.longitude = viewModel.longitude
         geofence.radius = viewModel.radius
         geofence.isActive = viewModel.isActive
         
-        do {
-            try viewContext.save()
-            print("✅ Context saved successfully")
-            
-            // Add this line to refresh the list
-            viewModel.geofenceListViewModel.fetchGeofences()
-            
-            dismiss()
-        } catch {
-            print("❌ Error updating geofence: \(error)")
-            print("Detailed error: \(error.localizedDescription)")
-        }
+        // Use PersistenceController's save method
+        PersistenceController.shared.saveIfNeeded()
+        print("✅ Context saved successfully")
+        
+        // Add this line to refresh the list
+        viewModel.geofenceListViewModel.fetchGeofences()
+        
+        dismiss()
     }
 }
 

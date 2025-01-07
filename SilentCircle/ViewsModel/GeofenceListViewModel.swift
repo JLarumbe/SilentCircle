@@ -28,11 +28,7 @@ class GeofenceListViewModel: ObservableObject {
             viewContext.delete(geofences[index])
         }
         
-        do {
-            try viewContext.save()
-            fetchGeofences()
-        } catch {
-            print("Error deleting geofence: \(error)")
-        }
+        PersistenceController.shared.saveIfNeeded()
+        fetchGeofences()
     }
 } 

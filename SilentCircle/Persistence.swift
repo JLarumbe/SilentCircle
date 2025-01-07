@@ -8,7 +8,7 @@
 import CoreData
 
 // PersistenceController manages the Core Data stack for the entire app
-struct PersistenceController {
+class PersistenceController {
     // Shared singleton instance that can be accessed throughout the app
     static let shared = PersistenceController()
 
@@ -53,6 +53,10 @@ struct PersistenceController {
     // the managed object model, persistent store coordinator, and context
     let container: NSPersistentContainer
 
+    // Add property to track save state
+    private var isSaving = false
+    private var saveWorkItem: DispatchWorkItem?
+
     // Initialize the Core Data stack
     init(inMemory: Bool = false) {
         // Create container with our model name
@@ -80,15 +84,31 @@ struct PersistenceController {
         viewContext.automaticallyMergesChangesFromParent = true
         viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         
-        // Set up automatic saving
-        NotificationCenter.default.addObserver(forName: .NSManagedObjectContextObjectsDidChange, object: nil, queue: .main) { _ in
-            if viewContext.hasChanges {
-                do {
-                    try viewContext.save()
-                } catch {
-                    print("❌ Error auto-saving context: \(error)")
-                }
+        // Modified auto-save with better notification filtering
+        NotificationCenter.default.addObserver(
+            forName: .NSManagedObjectContextObjectsDidChange,
+            object: viewContext,  // Only observe this specific context
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  !self.isSaving,
+                  let context = notification.object as? NSManagedObjectContext,
+                  context == viewContext,
+                  // Only save if there are actual changes, not during a save operation
+                  let userInfo = notification.userInfo,
+                  let inserts = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject>,
+                  let updates = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject>,
+                  let deletes = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject>,
+                  (!inserts.isEmpty || !updates.isEmpty || !deletes.isEmpty)
+            else { return }
+            
+            self.isSaving = true
+            do {
+                try viewContext.save()
+            } catch {
+                print("❌ Error auto-saving context: \(error)")
             }
+            self.isSaving = false
         }
     }
     
@@ -97,5 +117,20 @@ struct PersistenceController {
         let context = container.newBackgroundContext()
         context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         return context
+    }
+    
+    // Remove automatic saving and provide explicit save methods
+    
+    func saveIfNeeded() {
+        let context = container.viewContext
+        guard !isSaving, context.hasChanges else { return }
+        
+        isSaving = true
+        do {
+            try context.save()
+        } catch {
+            print("❌ Error saving context: \(error)")
+        }
+        isSaving = false
     }
 }

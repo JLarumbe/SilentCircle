@@ -42,12 +42,8 @@ class AddGeofenceViewModel: ObservableObject {
         newGeofence.radius = radius
         newGeofence.isActive = true
         
-        do {
-            try viewContext.save()
-            geofenceListViewModel.fetchGeofences()
-        } catch {
-            print("Error adding geofence: \(error)")
-        }
+        PersistenceController.shared.saveIfNeeded()
+        geofenceListViewModel.fetchGeofences()
     }
     
     func radiusToPoints() -> CGFloat {

@@ -45,14 +45,10 @@ class UpdateGeofenceViewModel: ObservableObject {
         geofence.radius = radius
         geofence.isActive = isActive
         
-        do {
-            try viewContext.save()
-            print("✅ Context saved successfully")
-            geofenceListViewModel.fetchGeofences()
-        } catch {
-            print("❌ Error updating geofence: \(error)")
-            print("Detailed error: \(error.localizedDescription)")
-        }
+        // Use PersistenceController's save method
+        PersistenceController.shared.saveIfNeeded()
+        print("✅ Context saved successfully")
+        geofenceListViewModel.fetchGeofences()
     }
     
     var isValidGeofence: Bool {
