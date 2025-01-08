@@ -101,7 +101,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func requestLocation() {
         guard !isRequestingLocation else { return }
         isRequestingLocation = true
+        print("🎯 Requesting location update")
         manager.requestLocation()
+        
+        // Reset request flag after a timeout
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second timeout
+            isRequestingLocation = false
+        }
     }
     
     func startMonitoringGeofence(_ geofence: Geofence) {
@@ -177,10 +184,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let userLocation = locations.last else { return }
+        print("📍 Location update: \(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)")
+        
+        Task { @MainActor in
+            self.userLocation = userLocation
+        }
         
         var foundActiveGeofence = false
         
-        // Since monitoredRegions is already Set<CLCircularRegion>, no need to cast
         for region in monitoredRegions {
             guard let geofence = findGeofence(for: region) else { continue }
             
@@ -190,33 +201,33 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             )
             
             let distance = userLocation.distance(from: center)
-            print("📍 Distance to \(geofence.name ?? "Unknown"): \(distance)m (radius: \(geofence.radius)m)")
+            print("📍 Distance to '\(geofence.name ?? "Unknown")': \(Int(distance))m (radius: \(Int(geofence.radius))m)")
             
             if distance <= geofence.radius {
                 self.currentGeofence = geofence
                 foundActiveGeofence = true
+                print("✅ Inside geofence: '\(geofence.name ?? "Unknown")'")
                 break
             }
         }
         
         if !foundActiveGeofence {
+            if self.currentGeofence != nil {
+                print("❌ No longer inside any geofence")
+            }
             self.currentGeofence = nil
         }
     }
     
-    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error.localizedDescription)")
-    }
-    
     nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        // We know this is a CLCircularRegion since that's all we monitor
         let circularRegion = (region as! CLCircularRegion)
+        print("🎯 Entered region: '\(circularRegion.identifier)'")
         
         // Find and set the current geofence
         if let geofence = findGeofence(for: circularRegion) {
             Task { @MainActor in
                 self.currentGeofence = geofence
-                print("📍 Set current geofence: \(geofence.name ?? "Unknown")")
+                print("✅ Set current geofence: '\(geofence.name ?? "Unknown")'")
             }
         }
         
@@ -227,13 +238,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        // We know this is a CLCircularRegion since that's all we monitor
         let circularRegion = (region as! CLCircularRegion)
+        print("🚶‍♂️ Exited region: '\(circularRegion.identifier)'")
         
         Task { @MainActor in
             if self.currentGeofence?.name == circularRegion.identifier {
+                print("❌ Clearing current geofence: '\(circularRegion.identifier)'")
                 self.currentGeofence = nil
-                print("🚶‍♂️ Cleared current geofence")
             }
         }
         
@@ -241,6 +252,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             title: "Exiting Silent Circle (\(circularRegion.identifier))",
             body: "Notifications have been restored."
         )
+    }
+    
+    nonisolated func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
+        print("⚠️ Monitoring failed for region: '\(region?.identifier ?? "Unknown")', error: \(error.localizedDescription)")
+    }
+    
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("⚠️ Location error: \(error.localizedDescription)")
     }
     
     private func findGeofence(for region: CLCircularRegion) -> Geofence? {
