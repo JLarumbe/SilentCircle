@@ -9,6 +9,7 @@ struct GeofenceListView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @State private var selectedGeofence: Geofence?
     @State private var activeGeofenceName: String?
+    @State private var showingAddGeofence = false
     
     init(viewContext: NSManagedObjectContext) {
         print("🏁 GeofenceListView init")
@@ -94,17 +95,13 @@ struct GeofenceListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                NavigationLink(destination: AddGeofenceView(
-                    geofenceListViewModel: viewModel,
-                    viewContext: viewContext
-                )) {
+                Button(action: { showingAddGeofence = true }) {
                     Image(systemName: "plus")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.blue)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
-                .isDetailLink(false)
             }
         }
         .id(viewModel.id)
@@ -126,9 +123,14 @@ struct GeofenceListView: View {
                 viewContext: viewContext,
                 geofence: geofence
             )
+            .environmentObject(locationManager)
         }
-        .onReceive(locationManager.$currentGeofence) { geofence in
-            activeGeofenceName = geofence?.name
+        .sheet(isPresented: $showingAddGeofence) {
+            AddGeofenceView(
+                geofenceListViewModel: viewModel,
+                viewContext: viewContext
+            )
+            .environmentObject(locationManager)
         }
     }
     

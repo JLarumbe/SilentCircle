@@ -13,6 +13,7 @@ import Combine
 struct AddGeofenceView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var locationManager: LocationManager
     @StateObject private var viewModel: AddGeofenceViewModel
     @State private var showingLocationSearch = false
     @State private var cardOffset: CGFloat = 0
@@ -72,22 +73,28 @@ struct AddGeofenceView: View {
                             // Only keep the location button
                             Button(action: {
                                 Task {
-                                    viewModel.requestLocation()
-                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    print("📍 Requesting current location")
+                                    locationManager.requestLocation()
                                     
-                                    await MainActor.run {
-                                        if let location = viewModel.userLocation {
-                                            mapPosition = .camera(MapCamera(
-                                                centerCoordinate: location.coordinate,
-                                                distance: 1000,
-                                                heading: 0,
-                                                pitch: 0
-                                            ))
-                                            viewModel.updateLocation(
-                                                latitude: location.coordinate.latitude,
-                                                longitude: location.coordinate.longitude
-                                            )
+                                    // Wait for location update with timeout
+                                    for _ in 0..<10 {  // Try for 5 seconds
+                                        if let location = locationManager.userLocation {
+                                            print("✅ Got location: \(location.coordinate)")
+                                            await MainActor.run {
+                                                mapPosition = .camera(MapCamera(
+                                                    centerCoordinate: location.coordinate,
+                                                    distance: 1000,
+                                                    heading: 0,
+                                                    pitch: 0
+                                                ))
+                                                viewModel.updateLocation(
+                                                    latitude: location.coordinate.latitude,
+                                                    longitude: location.coordinate.longitude
+                                                )
+                                            }
+                                            break
                                         }
+                                        try? await Task.sleep(nanoseconds: 500_000_000)
                                     }
                                 }
                             }) {
@@ -117,22 +124,28 @@ struct AddGeofenceView: View {
                             // Only keep the location button
                             Button(action: {
                                 Task {
-                                    viewModel.requestLocation()
-                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    print("📍 Requesting current location")
+                                    locationManager.requestLocation()
                                     
-                                    await MainActor.run {
-                                        if let location = viewModel.userLocation {
-                                            mapPosition = .camera(MapCamera(
-                                                centerCoordinate: location.coordinate,
-                                                distance: 1000,
-                                                heading: 0,
-                                                pitch: 0
-                                            ))
-                                            viewModel.updateLocation(
-                                                latitude: location.coordinate.latitude,
-                                                longitude: location.coordinate.longitude
-                                            )
+                                    // Wait for location update with timeout
+                                    for _ in 0..<10 {  // Try for 5 seconds
+                                        if let location = locationManager.userLocation {
+                                            print("✅ Got location: \(location.coordinate)")
+                                            await MainActor.run {
+                                                mapPosition = .camera(MapCamera(
+                                                    centerCoordinate: location.coordinate,
+                                                    distance: 1000,
+                                                    heading: 0,
+                                                    pitch: 0
+                                                ))
+                                                viewModel.updateLocation(
+                                                    latitude: location.coordinate.latitude,
+                                                    longitude: location.coordinate.longitude
+                                                )
+                                            }
+                                            break
                                         }
+                                        try? await Task.sleep(nanoseconds: 500_000_000)
                                     }
                                 }
                             }) {

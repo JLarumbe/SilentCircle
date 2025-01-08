@@ -68,28 +68,35 @@ struct UpdateGeofenceView: View {
                         VStack(spacing: 8) {
                             Button(action: {
                                 Task {
+                                    print("📍 Requesting current location")
                                     locationManager.requestLocation()
-                                    try? await Task.sleep(nanoseconds: 500_000_000)
                                     
-                                    await MainActor.run {
+                                    // Wait for location update with timeout
+                                    for _ in 0..<10 {  // Try for 5 seconds
                                         if let location = locationManager.userLocation {
-                                            mapPosition = .camera(MapCamera(
-                                                centerCoordinate: location.coordinate,
-                                                distance: 1000,
-                                                heading: 0,
-                                                pitch: 0
-                                            ))
-                                            viewModel.updatePinLocation(coordinate: location.coordinate)
+                                            print("✅ Got location: \(location.coordinate)")
+                                            await MainActor.run {
+                                                mapPosition = .camera(MapCamera(
+                                                    centerCoordinate: location.coordinate,
+                                                    distance: 1000,
+                                                    heading: 0,
+                                                    pitch: 0
+                                                ))
+                                                viewModel.updateLocation(
+                                                    latitude: location.coordinate.latitude,
+                                                    longitude: location.coordinate.longitude
+                                                )
+                                            }
+                                            break
                                         }
+                                        try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 second intervals
                                     }
                                 }
                             }) {
                                 Image(systemName: "location.fill")
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 40, height: 40)
-                                    .background(.thinMaterial)
+                                    .padding(8)
+                                    .background(.ultraThinMaterial)
                                     .clipShape(Circle())
-                                    .shadow(radius: 2)
                             }
                         }
                         .padding()
