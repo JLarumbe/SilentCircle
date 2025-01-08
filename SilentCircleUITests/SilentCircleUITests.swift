@@ -23,7 +23,7 @@ final class SilentCircleUITests: XCTestCase {
     }
 
     @MainActor
-    func testExample() throws {
+    func testExample()  {
         // UI tests must launch the application that they test.
         let app = XCUIApplication()
         app.launch()

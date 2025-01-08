@@ -6,6 +6,7 @@ import Combine
 class GeofenceListViewModel: ObservableObject {
     @Published private(set) var geofences: [Geofence] = []
     @Published private(set) var isLoading = false
+    let id = UUID().uuidString
     private let viewContext: NSManagedObjectContext
     private var fetchRequest: NSFetchRequest<Geofence>
     private var cancellables = Set<AnyCancellable>()
@@ -53,10 +54,12 @@ class GeofenceListViewModel: ObservableObject {
         }
     }
     
-    func deleteItems(at offsets: [Int]) {
+    func deleteItems(at offsets: [Int], locationManager: LocationManager) {
         Task {
             for index in offsets {
-                viewContext.delete(geofences[index])
+                let geofence = geofences[index]
+                locationManager.stopMonitoringGeofence(geofence)
+                viewContext.delete(geofence)
             }
             
             PersistenceController.shared.saveIfNeeded()
@@ -104,5 +107,14 @@ class GeofenceListViewModel: ObservableObject {
         cancellables.removeAll()
         fetchCancellable?.cancel()
         fetchCancellable = nil
+    }
+    
+    func updateGeofenceMonitoring(_ geofence: Geofence, locationManager: LocationManager) {
+        // Always stop monitoring first to ensure clean state
+        locationManager.stopMonitoringGeofence(geofence)
+        
+        if geofence.isActive {
+            locationManager.startMonitoringGeofence(geofence)
+        }
     }
 } 

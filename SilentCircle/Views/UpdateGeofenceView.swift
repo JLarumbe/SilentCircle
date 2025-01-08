@@ -10,7 +10,7 @@ import MapKit
 import CoreData
 
 struct UpdateGeofenceView: View {
-    @StateObject private var locationManager = LocationManager()
+    @EnvironmentObject private var locationManager: LocationManager
     @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var viewModel: UpdateGeofenceViewModel
@@ -22,6 +22,7 @@ struct UpdateGeofenceView: View {
     @State private var keyboardHeight: CGFloat = 0
     @State private var is3DEnabled = false
     @State private var mapPosition: MapCameraPosition
+    @State private var isNavigationActive = true
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext, geofence: Geofence) {
         self.geofence = geofence
@@ -266,6 +267,24 @@ struct UpdateGeofenceView: View {
         }
         .ignoresSafeArea()
         .navigationBarHidden(true)
+        .interactiveDismissDisabled()
+        #if compiler(>=5.9)
+        .onChange(of: isNavigationActive) { oldValue, newValue in
+            if !newValue {
+                Task {
+                    await viewModel.geofenceListViewModel.fetchGeofences()
+                }
+            }
+        }
+        #else
+        .onChange(of: isNavigationActive) { newValue in
+            if !newValue {
+                Task {
+                    await viewModel.geofenceListViewModel.fetchGeofences()
+                }
+            }
+        }
+        #endif
         .overlay(alignment: .topLeading) {
             Button(action: { dismiss() }) {
                 HStack(spacing: 4) {
@@ -325,6 +344,7 @@ struct UpdateGeofenceView: View {
             
             PersistenceController.shared.saveIfNeeded()
             await viewModel.geofenceListViewModel.fetchGeofences()
+            isNavigationActive = false
             dismiss()
         }
     }
