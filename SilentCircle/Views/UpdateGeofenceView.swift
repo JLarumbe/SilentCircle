@@ -32,7 +32,7 @@ struct UpdateGeofenceView: View {
             geofence: geofence
         ))
         
-        // Initialize map position with existing geofence location
+        // Initialize map with existing geofence location
         _mapPosition = State(initialValue: .camera(MapCamera(
             centerCoordinate: CLLocationCoordinate2D(
                 latitude: geofence.latitude,

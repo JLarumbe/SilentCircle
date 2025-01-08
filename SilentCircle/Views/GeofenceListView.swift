@@ -8,7 +8,6 @@ struct GeofenceListView: View {
     @StateObject private var viewModel: GeofenceListViewModel
     @EnvironmentObject private var locationManager: LocationManager
     @State private var selectedGeofence: Geofence?
-    @State private var activeGeofenceName: String?
     @State private var showingAddGeofence = false
     
     init(viewContext: NSManagedObjectContext) {
@@ -95,7 +94,13 @@ struct GeofenceListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(action: { showingAddGeofence = true }) {
+                NavigationLink {
+                    AddGeofenceView(
+                        geofenceListViewModel: viewModel,
+                        viewContext: viewContext
+                    )
+                    .environmentObject(locationManager)
+                } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.blue)
@@ -122,13 +127,6 @@ struct GeofenceListView: View {
                 geofenceListViewModel: viewModel,
                 viewContext: viewContext,
                 geofence: geofence
-            )
-            .environmentObject(locationManager)
-        }
-        .sheet(isPresented: $showingAddGeofence) {
-            AddGeofenceView(
-                geofenceListViewModel: viewModel,
-                viewContext: viewContext
             )
             .environmentObject(locationManager)
         }
@@ -215,6 +213,28 @@ struct GeofenceListView: View {
             return "Permission Required"
         case .unknown:
             return "Checking..."
+        }
+    }
+    
+    // Add this to observe currentGeofence changes
+    private var activeGeofenceName: String? {
+        locationManager.currentGeofence?.name
+    }
+    
+    private func statusView(for geofence: Geofence) -> some View {
+        HStack {
+            let isActive = geofence.name == activeGeofenceName
+            let icon = isActive ? "checkmark.circle.fill" : "circle"
+            let iconColor: Color = isActive ? .green : .secondary
+            let status = isActive ? "Active" : "Inactive"
+            
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(iconColor)
+            
+            Text(status)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isActive ? .green : .secondary)
         }
     }
 }

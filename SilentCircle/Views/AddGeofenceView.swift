@@ -173,7 +173,7 @@ struct AddGeofenceView: View {
                     
                     // Main Content in ScrollView
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {
+                        VStack(spacing: 16) {  // Match UpdateGeofenceView spacing
                             // Name Field
                             TextField("Location Nickname", text: $viewModel.name)
                                 .textFieldStyle(.plain)
@@ -181,10 +181,6 @@ struct AddGeofenceView: View {
                                 .background(Color(.systemGray6))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .focused($isFocused)
-                                .animation(.easeOut(duration: 0.2), value: isFocused)
-                                .transaction { transaction in
-                                    transaction.animation = .easeOut(duration: 0.2)
-                                }
                             
                             // Location Info
                             HStack(spacing: 12) {
@@ -212,14 +208,7 @@ struct AddGeofenceView: View {
                                 Spacer()
                                 
                                 // Search Button with Background
-                                Button(action: { 
-                                    isFocused = false  // Dismiss keyboard
-                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), 
-                                                                     to: nil, 
-                                                                     from: nil, 
-                                                                     for: nil)  // Force keyboard dismiss
-                                    showingLocationSearch = true 
-                                }) {
+                                Button(action: { showingLocationSearch = true }) {
                                     HStack(spacing: 6) {
                                         Image(systemName: "magnifyingglass")
                                             .font(.system(size: 15, weight: .medium))

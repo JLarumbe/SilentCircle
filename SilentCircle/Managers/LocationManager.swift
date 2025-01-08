@@ -12,6 +12,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let locationSubject = PassthroughSubject<CLLocation, Never>()
     private var isRequestingLocation = false
     private var statusCheckTimer: Timer?
+    private var shouldSendNotifications = true
     
     enum MonitoringStatus {
         case ready
@@ -112,6 +113,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func startMonitoringGeofence(_ geofence: Geofence) {
+        shouldSendNotifications = false  // Disable notifications during setup
         // First stop monitoring any existing region for this geofence
         stopMonitoringGeofence(geofence)
         
@@ -128,28 +130,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         monitoredRegions.insert(region)
         print("🎯 Started monitoring geofence: \(geofence.name ?? "Unknown") at (\(geofence.latitude), \(geofence.longitude))")
         
-        // Check if we're currently inside the new region
-        if let location = manager.location {
-            let center = CLLocation(
-                latitude: geofence.latitude,
-                longitude: geofence.longitude
-            )
-            let distance = location.distance(from: center)
-            
-            if distance <= geofence.radius {
-                // We're inside the new region
-                Task { @MainActor in
-                    self.currentGeofence = geofence
-                    NotificationManager.shared.scheduleNotification(
-                        title: "Entering Silent Circle (\(geofence.name ?? "Unknown"))",
-                        body: "Notifications will be turned off until you leave."
-                    )
-                }
-            }
-        }
-        
-        // Force an immediate location check
+        // Remove the initial location check that was sending notifications
+        // This way notifications only trigger on actual region entry/exit
         manager.requestLocation()
+        // Re-enable notifications after a delay
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 second delay
+            shouldSendNotifications = true
+        }
     }
     
     func stopMonitoringGeofence(_ geofence: Geofence) {
@@ -162,14 +150,16 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             monitoredRegions.remove(region)
         }
         
-        // If we were inside, notify about exiting
+        // If we were inside, clear current geofence but only notify if enabled
         if wasInside {
             Task { @MainActor in
                 self.currentGeofence = nil
-                NotificationManager.shared.scheduleNotification(
-                    title: "Exiting Silent Circle (\(geofence.name ?? "Unknown"))",
-                    body: "Notifications have been restored."
-                )
+                if shouldSendNotifications {  // Only send if enabled
+                    NotificationManager.shared.scheduleNotification(
+                        title: "Exiting Silent Circle (\(geofence.name ?? "Unknown"))",
+                        body: "Notifications have been restored."
+                    )
+                }
             }
         }
         
@@ -204,6 +194,16 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             print("📍 Distance to '\(geofence.name ?? "Unknown")': \(Int(distance))m (radius: \(Int(geofence.radius))m)")
             
             if distance <= geofence.radius {
+                // Only notify if we weren't already in this geofence
+                if self.currentGeofence?.id != geofence.id {
+                    print("🎯 Entering geofence: '\(geofence.name ?? "Unknown")'")
+                    if shouldSendNotifications {  // Only send if enabled
+                        NotificationManager.shared.scheduleNotification(
+                            title: "Entering Silent Circle (\(geofence.name ?? "Unknown"))",
+                            body: "Notifications will be turned off until you leave."
+                        )
+                    }
+                }
                 self.currentGeofence = geofence
                 foundActiveGeofence = true
                 print("✅ Inside geofence: '\(geofence.name ?? "Unknown")'")
@@ -212,8 +212,15 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         
         if !foundActiveGeofence {
-            if self.currentGeofence != nil {
-                print("❌ No longer inside any geofence")
+            // Only notify if we were in a geofence before
+            if let oldGeofence = self.currentGeofence {
+                print("🚶‍♂️ Exiting geofence: '\(oldGeofence.name ?? "Unknown")'")
+                if shouldSendNotifications {  // Only send if enabled
+                    NotificationManager.shared.scheduleNotification(
+                        title: "Exiting Silent Circle (\(oldGeofence.name ?? "Unknown"))",
+                        body: "Notifications have been restored."
+                    )
+                }
             }
             self.currentGeofence = nil
         }
