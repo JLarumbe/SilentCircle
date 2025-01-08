@@ -3,7 +3,12 @@ import Combine
 
 class KeyboardManager: ObservableObject {
     @Published private(set) var keyboardHeight: CGFloat = 0
-    private var cancellables = Set<AnyCancellable>()
+    var cancellables = Set<AnyCancellable>()
+    
+    // Add a publisher that other views can subscribe to
+    var heightPublisher: AnyPublisher<CGFloat, Never> {
+        $keyboardHeight.eraseToAnyPublisher()
+    }
     
     init() {
         setupKeyboardObservers()

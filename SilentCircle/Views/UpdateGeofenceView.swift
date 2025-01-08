@@ -22,6 +22,7 @@ struct UpdateGeofenceView: View {
     @State private var mapPosition: MapCameraPosition
     @State private var isNavigationActive = true
     private let geofence: Geofence
+    @StateObject private var keyboardManager = KeyboardManager()
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext, geofence: Geofence) {
         self.geofence = geofence
@@ -50,19 +51,25 @@ struct UpdateGeofenceView: View {
                     MapReader { proxy in
                         Map(position: $mapPosition) {
                             Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
-                                .tint(.blue)
                             
-                            MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
-                                .foregroundStyle(.blue.opacity(0.15))
-                                .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                            if viewModel.isValidGeofence {
+                                MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
+                                    .foregroundStyle(.blue.opacity(0.15))
+                                    .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                            }
                         }
-                        .onTapGesture { location in
-                            if let coordinate = proxy.convert(location, from: .local) {
-                                viewModel.handleMapTap(coordinate: coordinate)
+                        .onChange(of: viewModel.pinCoordinateWrapper) { oldValue, newValue in
+                            viewModel.debounceMapUpdate {
+                                mapPosition = .camera(MapCamera(
+                                    centerCoordinate: newValue.coordinate,
+                                    distance: 1000,
+                                    heading: 0,
+                                    pitch: 0
+                                ))
                             }
                         }
                     }
-                    .mapStyle(.standard(elevation: .realistic))
+                    .mapStyle(.standard(elevation: .flat))
                     .overlay(alignment: .bottomTrailing) {
                         VStack(spacing: 8) {
                             Button(action: {
@@ -296,22 +303,19 @@ struct UpdateGeofenceView: View {
                 .animation(.easeInOut, value: isFocused)
             }
         }
+        .onReceive(keyboardManager.$keyboardHeight) { height in
+            self.keyboardHeight = height
+        }
         .onAppear {
-            // Pre-fill the form with existing geofence data
+            // Initialize view model data
             viewModel.name = geofence.name ?? ""
             viewModel.radius = geofence.radius
             viewModel.latitude = geofence.latitude
             viewModel.longitude = geofence.longitude
             viewModel.isActive = geofence.isActive
-            
-            // Keyboard observers
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
-                let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect ?? .zero
-                keyboardHeight = keyboardFrame.height
-            }
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
-                keyboardHeight = 0
-            }
+        }
+        .onDisappear {
+            viewModel.cleanup()
         }
         .sheet(isPresented: $showingLocationSearch) {
             LocationSearchView(onLocationSelected: { name, coordinate in
@@ -328,6 +332,44 @@ struct UpdateGeofenceView: View {
                 showingLocationSearch = false
             })
         }
+    }
+    
+    private func requestLocation() {
+        Task {
+            print("📍 Requesting current location")
+            locationManager.requestLocation()
+            
+            // Use async/await properly
+            try? await withTimeout(seconds: 5) {
+                guard let location = await waitForLocation() else { return }
+                await MainActor.run {
+                    updateMapPosition(with: location)
+                }
+            }
+        }
+    }
+    
+    private func waitForLocation() async -> CLLocation? {
+        for _ in 0..<3 { // Reduced attempts
+            if let location = locationManager.userLocation {
+                return location
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second intervals
+        }
+        return nil
+    }
+    
+    private func updateMapPosition(with location: CLLocation) {
+        mapPosition = .camera(MapCamera(
+            centerCoordinate: location.coordinate,
+            distance: 1000,
+            heading: 0,
+            pitch: 0
+        ))
+        viewModel.updateLocation(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude
+        )
     }
     
     private func updateGeofence() {
@@ -348,7 +390,7 @@ struct UpdateGeofenceView: View {
     }
     
     private func convertToCoordinate(_ point: CGPoint, in geometry: GeometryProxy) -> CLLocationCoordinate2D? {
-        guard let region = viewModel.getCurrentRegion() else { return nil }
+        let region = viewModel.getCurrentRegion()
         
         let mapFrame = geometry.frame(in: .local)
         
@@ -368,6 +410,26 @@ struct UpdateGeofenceView: View {
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 }
+
+// Add timeout utility
+func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask {
+            try await operation()
+        }
+        
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw TimeoutError()
+        }
+        
+        let result = try await group.next()!
+        group.cancelAll()
+        return result
+    }
+}
+
+struct TimeoutError: Error {}
 
 #Preview {
     let viewContext = PersistenceController.preview.container.viewContext
