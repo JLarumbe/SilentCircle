@@ -10,19 +10,20 @@ import Combine
 
 // PersistenceController manages the Core Data stack for the entire app
 class PersistenceController {
-    // Shared singleton instance that can be accessed throughout the app
+    // Change from private(set) back to regular static
     static let shared = PersistenceController()
+    
+    // Restore these properties
     private var cancellables = Set<AnyCancellable>()
     private let saveSubject = PassthroughSubject<Void, Never>()
-
-    // Creates a preview instance with sample data for SwiftUI previews
-    // @MainActor ensures this runs on the main thread where UI updates happen
+    
+    // Keep preview instance for SwiftUI previews only
     @MainActor
     static let preview: PersistenceController = {
         let result = PersistenceController(inMemory: true)
         let viewContext = result.container.viewContext
         
-        // Sample geofence data
+        // Sample geofence data only for previews
         let geofences = [
             ("Home", 40.7127, -73.9653, 50.0),
             ("Work", 40.7589, -73.9851, 100.0),
@@ -30,7 +31,7 @@ class PersistenceController {
             ("Coffee Shop", 40.7281, -73.9942, 25.0)
         ]
         
-        // Create multiple geofences
+        // Create preview geofences
         for (name, lat, lon, radius) in geofences {
             let newGeofence = Geofence(context: viewContext)
             newGeofence.id = UUID()
@@ -41,26 +42,29 @@ class PersistenceController {
             newGeofence.isActive = true
         }
         
-        // Save the sample data to the preview context
-        do {
-            try viewContext.save()
-        } catch {
-            // Error handling for development purposes
-            let nsError = error as NSError
-            fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-        }
+        try? viewContext.save()
         return result
     }()
 
+    private let inMemory: Bool
+    
     // The NSPersistentContainer handles the Core Data stack including
     // the managed object model, persistent store coordinator, and context
     lazy var container: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "SilentCircle")
+        
+        if inMemory {
+            // Use in-memory store for previews
+            let storeDescription = NSPersistentStoreDescription()
+            storeDescription.type = NSInMemoryStoreType
+            container.persistentStoreDescriptions = [storeDescription]
+        }
+        
         container.loadPersistentStores { description, error in
             if let error = error {
                 fatalError("Unable to load persistent stores: \(error)")
             }
-            // Configure the view context after loading
+            
             let viewContext = container.viewContext
             viewContext.automaticallyMergesChangesFromParent = true
             viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
@@ -73,12 +77,7 @@ class PersistenceController {
 
     // Initialize the Core Data stack
     init(inMemory: Bool = false) {
-        // For previews, use an in-memory store instead of writing to disk
-        if inMemory {
-            container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
-        }
-        
-        // Optimized observer setup
+        self.inMemory = inMemory
         setupObservers()
         setupSavePublisher()
     }
@@ -131,4 +130,18 @@ class PersistenceController {
             }
             .store(in: &cancellables)
     }
+
+    #if DEBUG
+        func deleteAllData() {
+            let context = container.viewContext
+            let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "Geofence")
+            let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+            
+            do {
+                try container.persistentStoreCoordinator.execute(deleteRequest, with: context)
+            } catch {
+                print("Error deleting all data: \(error)")
+            }
+        }
+    #endif
 }

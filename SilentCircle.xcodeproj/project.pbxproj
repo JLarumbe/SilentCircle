@@ -48,16 +48,6 @@
 			path = SilentCircle;
 			sourceTree = "<group>";
 		};
-		C2AB5FAB2D2B1D10002AB6B5 /* SilentCircleTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SilentCircleTests;
-			sourceTree = "<group>";
-		};
-		C2AB5FB52D2B1D10002AB6B5 /* SilentCircleUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SilentCircleUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,8 +79,6 @@
 			isa = PBXGroup;
 			children = (
 				C2AB5F952D2B1D0F002AB6B5 /* SilentCircle */,
-				C2AB5FAB2D2B1D10002AB6B5 /* SilentCircleTests */,
-				C2AB5FB52D2B1D10002AB6B5 /* SilentCircleUITests */,
 				C2AB5F942D2B1D0F002AB6B5 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -143,9 +131,6 @@
 			dependencies = (
 				C2AB5FAA2D2B1D10002AB6B5 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				C2AB5FAB2D2B1D10002AB6B5 /* SilentCircleTests */,
-			);
 			name = SilentCircleTests;
 			packageProductDependencies = (
 			);
@@ -165,9 +150,6 @@
 			);
 			dependencies = (
 				C2AB5FB42D2B1D10002AB6B5 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				C2AB5FB52D2B1D10002AB6B5 /* SilentCircleUITests */,
 			);
 			name = SilentCircleUITests;
 			packageProductDependencies = (
@@ -214,8 +196,6 @@
 			projectRoot = "";
 			targets = (
 				C2AB5F922D2B1D0F002AB6B5 /* SilentCircle */,
-				C2AB5FA72D2B1D10002AB6B5 /* SilentCircleTests */,
-				C2AB5FB12D2B1D10002AB6B5 /* SilentCircleUITests */,
 			);
 		};
 /* End PBXProject section */
