@@ -6,52 +6,78 @@ import Combine
 class GeofenceListViewModel: ObservableObject {
     @Published private(set) var geofences: [Geofence] = []
     @Published private(set) var isLoading = false
-    let id = UUID().uuidString
+    @Published var selectedGeofence: Geofence?
     private let viewContext: NSManagedObjectContext
     private var fetchRequest: NSFetchRequest<Geofence>
     private var cancellables = Set<AnyCancellable>()
     private var isObserving = false
-    
-    private var fetchPublisher: AnyPublisher<[Geofence], Error> {
-        Future { [weak self] promise in
-            guard let self = self else { return }
-            Task {
-                do {
-                    let geofences = try await self.viewContext.perform {
-                        try self.fetchRequest.execute()
-                    }
-                    promise(.success(geofences))
-                } catch {
-                    promise(.failure(error))
-                }
-            }
-        }.eraseToAnyPublisher()
-    }
-    
-    private var fetchCancellable: AnyCancellable?
+    private var lastFetchTime: Date?
+    private let minimumFetchInterval: TimeInterval = 1.0
+    private var isInitialFetch = true
     
     init(viewContext: NSManagedObjectContext) {
         self.viewContext = viewContext
-        // Setup fetch request once
         self.fetchRequest = NSFetchRequest<Geofence>(entityName: "Geofence")
         self.fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Geofence.name, ascending: true)]
-        // Optional: Add batch size for large datasets
         self.fetchRequest.fetchBatchSize = 20
         
-        Task {
-            await fetchGeofences()
+        // Perform initial fetch synchronously to avoid state updates
+        do {
+            self.geofences = try viewContext.fetch(fetchRequest)
+            print("✅ Initial fetch: \(self.geofences.count) geofences")
+        } catch {
+            print("❌ Error in initial fetch: \(error)")
         }
     }
     
     func fetchGeofences() async {
+        // Skip if this is too soon after the last fetch
+        if let lastFetch = lastFetchTime,
+           Date().timeIntervalSince(lastFetch) < minimumFetchInterval {
+            return
+        }
+        
         do {
-            self.geofences = try await viewContext.perform {
+            let newGeofences = try await viewContext.perform {
                 try self.fetchRequest.execute()
             }
-            print("✅ Fetched \(self.geofences.count) geofences")
+            
+            // Only update if the geofences have actually changed
+            if !geofencesAreEqual(newGeofences, geofences) {
+                self.geofences = newGeofences
+                lastFetchTime = Date()
+                if !isInitialFetch {
+                    print("✅ Fetched \(self.geofences.count) geofences")
+                }
+            }
+            isInitialFetch = false
         } catch {
             print("❌ Error fetching geofences: \(error)")
         }
+    }
+    
+    private func geofencesAreEqual(_ first: [Geofence], _ second: [Geofence]) -> Bool {
+        guard first.count == second.count else { return false }
+        return zip(first, second).allSatisfy { $0.objectID == $1.objectID }
+    }
+    
+    func startObserving() {
+        guard !isObserving else { return }
+        isObserving = true
+        
+        // Setup Core Data observation with increased debounce
+        NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave)
+            .filter { notification in
+                let context = notification.object as? NSManagedObjectContext
+                return context == self.viewContext
+            }
+            .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    await self?.fetchGeofences()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     func deleteItems(at offsets: [Int], locationManager: LocationManager) {
@@ -67,54 +93,8 @@ class GeofenceListViewModel: ObservableObject {
         }
     }
     
-    func startObserving() {
-        guard !isObserving else { return }
-        isObserving = true
-        
-        // Clear existing subscriptions
-        cancellables.removeAll()
-        
-        let publisher = Publishers.Merge(
-            NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave),
-            NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange)
-        )
-        .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
-        
-        publisher
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                self.isLoading = true
-                
-                // Cancel previous fetch if any
-                self.fetchCancellable?.cancel()
-                
-                self.fetchCancellable = self.fetchPublisher
-                    .receive(on: DispatchQueue.main)
-                    .sink(
-                        receiveCompletion: { [weak self] _ in
-                            self?.isLoading = false
-                        },
-                        receiveValue: { [weak self] geofences in
-                            self?.geofences = geofences
-                        }
-                    )
-            }
-            .store(in: &cancellables)
-    }
-    
     func stopObserving() {
         isObserving = false
         cancellables.removeAll()
-        fetchCancellable?.cancel()
-        fetchCancellable = nil
-    }
-    
-    func updateGeofenceMonitoring(_ geofence: Geofence, locationManager: LocationManager) {
-        // Always stop monitoring first to ensure clean state
-        locationManager.stopMonitoringGeofence(geofence)
-        
-        if geofence.isActive {
-            locationManager.startMonitoringGeofence(geofence)
-        }
     }
 } 

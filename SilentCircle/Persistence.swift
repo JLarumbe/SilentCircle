@@ -54,7 +54,7 @@ class PersistenceController {
         let container = NSPersistentContainer(name: "SilentCircle")
         
         if inMemory {
-            // Use in-memory store for previews
+            // Use in-memory store for previewss
             let storeDescription = NSPersistentStoreDescription()
             storeDescription.type = NSInMemoryStoreType
             container.persistentStoreDescriptions = [storeDescription]

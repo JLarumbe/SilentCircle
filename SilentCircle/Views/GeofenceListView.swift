@@ -6,14 +6,29 @@ import Combine
 struct GeofenceListView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var viewModel: GeofenceListViewModel
-    @EnvironmentObject private var locationManager: LocationManager
-    @State private var selectedGeofence: Geofence?
-    @State private var showingAddGeofence = false
+    let locationManager: LocationManager
     
-    init(viewContext: NSManagedObjectContext) {
+    init(viewModel: GeofenceListViewModel, locationManager: LocationManager) {
         print("🏁 GeofenceListView init")
-        _viewModel = StateObject(wrappedValue: GeofenceListViewModel(viewContext: viewContext))
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.locationManager = locationManager
     }
+    
+    var body: some View {
+        NavigationStack {
+            GeofenceListMainView(
+                viewModel: viewModel,
+                locationManager: locationManager,
+                viewContext: viewContext
+            )
+        }
+    }
+}
+
+private struct GeofenceListMainView: View {
+    @ObservedObject var viewModel: GeofenceListViewModel
+    let locationManager: LocationManager
+    let viewContext: NSManagedObjectContext
     
     var body: some View {
         ZStack {
@@ -24,70 +39,10 @@ struct GeofenceListView: View {
                     description: "Add your first Silent Circle to get started"
                 )
             } else {
-                VStack(spacing: 0) {
-                    // Status Bar with improved design
-                    if !viewModel.geofences.isEmpty {
-                        VStack(spacing: 12) {
-                            // Location Status Group
-                            StatusGroup(
-                                icon: locationStatusIcon,
-                                iconColor: locationStatusColor,
-                                title: "Location",
-                                status: locationStatusText
-                            )
-                            
-                            // Monitoring Status Group
-                            StatusGroup(
-                                icon: monitoringStatusIcon,
-                                iconColor: monitoringStatusColor,
-                                title: "Monitoring",
-                                status: monitoringStatusText
-                            )
-                            
-                            // Active Circle Status - Only show when inside a geofence
-                            if let name = activeGeofenceName {
-                                StatusGroup(
-                                    icon: "checkmark.shield.fill",
-                                    iconColor: .green,
-                                    title: "Active Circle",
-                                    status: name,
-                                    background: Color.green.opacity(0.1)
-                                )
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemBackground))
-                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-                    }
-                    
-                    List {
-                        ForEach(viewModel.geofences) { geofence in
-                            GeofenceRow(
-                                geofence: geofence,
-                                geofenceListViewModel: viewModel,
-                                needsRefresh: .constant(false),
-                                selectedGeofence: $selectedGeofence
-                            )
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    withAnimation {
-                                        viewModel.deleteItems(
-                                            at: [viewModel.geofences.firstIndex(of: geofence)!],
-                                            locationManager: locationManager
-                                        )
-                                    }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            .onChange(of: geofence.isActive) { _, newValue in
-                                viewModel.updateGeofenceMonitoring(geofence, locationManager: locationManager)
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                }
+                GeofenceListContent(
+                    viewModel: viewModel,
+                    locationManager: locationManager
+                )
             }
         }
         .navigationTitle("Silent Circles")
@@ -109,20 +64,23 @@ struct GeofenceListView: View {
                 }
             }
         }
-        .id(viewModel.id)
         .onAppear {
-            print("📱 GeofenceListView appeared [\(viewModel.id)]")
+            print("📱 GeofenceListView appeared")
             viewModel.startObserving()
             // Start monitoring existing active geofences
-            for geofence in viewModel.geofences where geofence.isActive {
-                locationManager.startMonitoringGeofence(geofence)
+            Task {
+                // Delay the geofence monitoring setup slightly to avoid state updates during view initialization
+                try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 second delay
+                for geofence in viewModel.geofences where geofence.isActive {
+                    locationManager.startMonitoringGeofence(geofence)
+                }
             }
         }
         .onDisappear {
-            print("👋 GeofenceListView disappeared [\(viewModel.id)]")
+            print("👋 GeofenceListView disappeared")
             viewModel.stopObserving()
         }
-        .navigationDestination(item: $selectedGeofence) { geofence in
+        .navigationDestination(item: $viewModel.selectedGeofence) { geofence in
             UpdateGeofenceView(
                 geofenceListViewModel: viewModel,
                 viewContext: viewContext,
@@ -131,125 +89,71 @@ struct GeofenceListView: View {
             .environmentObject(locationManager)
         }
     }
+}
+
+// Extracted to a separate view to improve performance
+private struct GeofenceListContent: View {
+    @ObservedObject var viewModel: GeofenceListViewModel
+    let locationManager: LocationManager
     
-    // Location Status
-    private var locationStatusIcon: String {
-        switch locationManager.monitoringStatus {
-        case .ready, .noGeofences:
-            return "location.fill"
-        case .noLocation, .notAuthorized:
-            return "location.slash.fill"
-        case .unknown:
-            return "location.circle"
-        }
+    init(viewModel: GeofenceListViewModel, locationManager: LocationManager) {
+        print("📋 GeofenceListContent init")
+        self.viewModel = viewModel
+        self.locationManager = locationManager
     }
     
-    private var locationStatusColor: Color {
-        switch locationManager.monitoringStatus {
-        case .ready, .noGeofences:
-            return .green
-        case .noLocation:
-            return .orange
-        case .notAuthorized:
-            return .red
-        case .unknown:
-            return .gray
-        }
-    }
-    
-    private var locationStatusText: String {
-        switch locationManager.monitoringStatus {
-        case .ready, .noGeofences:
-            return "Available"
-        case .noLocation:
-            return "Disabled"
-        case .notAuthorized:
-            return "Not Authorized"
-        case .unknown:
-            return "Checking..."
-        }
-    }
-    
-    // Monitoring Status
-    private var monitoringStatusIcon: String {
-        switch locationManager.monitoringStatus {
-        case .ready:
-            return "checkmark.circle.fill"
-        case .noGeofences:
-            return "mappin.slash.circle.fill"
-        case .noLocation:
-            return "exclamationmark.triangle.fill"
-        case .notAuthorized:
-            return "exclamationmark.triangle.fill"
-        case .unknown:
-            return "ellipsis.circle.fill"
-        }
-    }
-    
-    private var monitoringStatusColor: Color {
-        switch locationManager.monitoringStatus {
-        case .ready:
-            return .green
-        case .noGeofences:
-            return .blue
-        case .noLocation:
-            return .orange
-        case .notAuthorized:
-            return .red
-        case .unknown:
-            return .gray
-        }
-    }
-    
-    private var monitoringStatusText: String {
-        switch locationManager.monitoringStatus {
-        case .ready:
-            return "Active"
-        case .noGeofences:
-            return "No Active Circles"
-        case .noLocation:
-            return "Location Required"
-        case .notAuthorized:
-            return "Permission Required"
-        case .unknown:
-            return "Checking..."
-        }
-    }
-    
-    // Add this to observe currentGeofence changes
-    private var activeGeofenceName: String? {
-        locationManager.currentGeofence?.name
-    }
-    
-    private func statusView(for geofence: Geofence) -> some View {
-        HStack {
-            let isActive = geofence.name == activeGeofenceName
-            let icon = isActive ? "checkmark.circle.fill" : "circle"
-            let iconColor: Color = isActive ? .green : .secondary
-            let status = isActive ? "Active" : "Inactive"
+    var body: some View {
+        VStack(spacing: 0) {
+            // Status Bars
+            StatusBarView()
+                .environmentObject(locationManager)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(iconColor)
-            
-            Text(status)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(isActive ? .green : .secondary)
+            List {
+                ForEach(viewModel.geofences) { geofence in
+                    GeofenceCell(
+                        geofence: geofence,
+                        geofenceListViewModel: viewModel,
+                        locationManager: locationManager,
+                        needsRefresh: .constant(false)
+                    )
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            withAnimation {
+                                viewModel.deleteItems(
+                                    at: [viewModel.geofences.firstIndex(of: geofence)!],
+                                    locationManager: locationManager
+                                )
+                            }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .onChange(of: geofence.isActive) { _, _ in
+                        if geofence.isActive {
+                            locationManager.startMonitoringGeofence(geofence)
+                        } else {
+                            locationManager.stopMonitoringGeofence(geofence)
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
         }
     }
 }
 
-struct GeofenceRow: View {
+struct GeofenceCell: View {
     @Environment(\.managedObjectContext) private var viewContext
     @ObservedObject var geofence: Geofence
     let geofenceListViewModel: GeofenceListViewModel
+    let locationManager: LocationManager
     @Binding var needsRefresh: Bool
-    @EnvironmentObject private var locationManager: LocationManager
-    @Binding var selectedGeofence: Geofence?
     
     var body: some View {
         Button {
-            selectedGeofence = geofence
+            geofenceListViewModel.selectedGeofence = geofence
         } label: {
             HStack(spacing: 16) {
                 // Location Icon
@@ -333,40 +237,15 @@ struct GeofenceEmptyStateView: View {
     }
 }
 
-// MARK: - Status Group Component
-struct StatusGroup: View {
-    let icon: String
-    let iconColor: Color
-    let title: String
-    let status: String
-    var background: Color = .clear
+#Preview {
+    let viewContext = PersistenceController.preview.container.viewContext
+    let geofenceListViewModel = GeofenceListViewModel(viewContext: viewContext)
+    let locationManager = LocationManager()
     
-    var body: some View {
-        HStack(spacing: 12) {
-            // Icon with background
-            ZStack {
-                Circle()
-                    .fill(iconColor.opacity(0.15))
-                    .frame(width: 32, height: 32) // Following 44pt minimum touch target
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(iconColor)
-            }
-            
-            // Status Text
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
-                Text(status)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-            }
-            
-            Spacer()
-        }
-        .padding(12)
-        .background(background)
-        .cornerRadius(12)
+    return NavigationView {
+        GeofenceListView(
+            viewModel: geofenceListViewModel,
+            locationManager: locationManager
+        )
     }
 }

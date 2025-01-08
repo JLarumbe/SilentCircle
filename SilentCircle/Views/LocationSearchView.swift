@@ -28,6 +28,7 @@ struct EmptyStateView: View {
 
 struct LocationSearchView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var locationManager: LocationManager
     @StateObject private var viewModel: LocationSearchViewModel
     @State private var searchText = ""
     @FocusState private var isFocused: Bool
@@ -36,128 +37,47 @@ struct LocationSearchView: View {
     var onLocationSelected: ((String, CLLocationCoordinate2D) -> Void)?
     
     init(onLocationSelected: ((String, CLLocationCoordinate2D) -> Void)? = nil) {
-        _viewModel = StateObject(wrappedValue: LocationSearchViewModel())
         self.onLocationSelected = onLocationSelected
+        let tempLocationManager = LocationManager()
+        _viewModel = StateObject(wrappedValue: LocationSearchViewModel(locationManager: tempLocationManager))
     }
     
     var body: some View {
         NavigationView {
-            ZStack {
-                Color(.systemBackground)
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 16) {
-                    // Search Bar
-                    HStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(.secondary)
-                            .font(.system(size: 17, weight: .medium))
-                            .frame(width: 44, height: 44)
-                        
-                        TextField("Search for a location", text: $searchText)
-                            .font(.body)
-                            .textFieldStyle(.plain)
-                            .frame(height: 44)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.none)
-                            .submitLabel(.search)
-                            .focused($isFocused)
-                        
-                        if !searchText.isEmpty {
-                            Button(action: { 
-                                withAnimation {
-                                    searchText = "" 
-                                    viewModel.clearSearch()
+            VStack {
+                if viewModel.searchResults.isEmpty && searchText.isEmpty {
+                    EmptyStateView(
+                        title: "Search Location",
+                        systemImage: "magnifyingglass",
+                        description: "Enter an address or place name to search"
+                    )
+                } else {
+                    List(viewModel.searchResults, id: \.self) { result in
+                        Button {
+                            viewModel.selectLocation(result) { title, coordinate in
+                                if let onLocationSelected = onLocationSelected {
+                                    onLocationSelected(title, coordinate)
                                 }
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
-                                    .font(.system(size: 17, weight: .medium))
+                                dismiss()
                             }
-                            .frame(width: 44, height: 44)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .frame(height: 56)
-                    .background {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.secondarySystemBackground))
-                            .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 4)
-                    }
-                    .padding(.horizontal)
-                    
-                    // Selected Location Map
-                    if let coordinate = viewModel.selectedCoordinate {
-                        Map(initialPosition: .region(MKCoordinateRegion(
-                            center: coordinate,
-                            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-                        ))) {
-                            Annotation("Selected Location", coordinate: coordinate) {
-                                Image(systemName: "mappin.circle.fill")
-                                    .font(.title)
-                                    .foregroundStyle(.blue)
-                                    .background {
-                                        Circle()
-                                            .fill(.white)
-                                    }
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Text(result.title)
+                                    .font(.headline)
+                                Text(result.subtitle)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
                             }
                         }
-                        .mapStyle(.standard(elevation: .realistic))
-                        .frame(height: 200)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal)
-                        .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 4)
                     }
-                    
-                    // Search Results
-                    if !viewModel.searchResults.isEmpty && viewModel.selectedLocation == nil {
-                        List {
-                            ForEach(viewModel.searchResults, id: \.self) { result in
-                                Button(action: {
-                                    withAnimation {
-                                        searchText = result.title
-                                        viewModel.selectLocation(result) { name, coordinate in
-                                            onLocationSelected?(name, coordinate)
-                                        }
-                                    }
-                                }) {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(result.title)
-                                            .font(.body)
-                                            .foregroundStyle(.primary)
-                                        Text(result.subtitle)
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .padding(.vertical, 8)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .contentShape(Rectangle())
-                                }
-                            }
-                        }
-                        .listStyle(.plain)
-                        .background(Color(.systemBackground))
-                    } else if searchText.isEmpty {
-                        EmptyStateView(
-                            title: "Find a Location",
-                            systemImage: "location.magnifyingglass",
-                            description: "Search for an address or place name to add a geofence"
-                        )
-                        .padding(.top, 40)
-                    }
-                    
-                    Spacer()
                 }
             }
-            .navigationTitle("Choose Location")
-            .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: searchText) { oldValue, newValue in
-                // Cancel any existing debounce task
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
+            .focused($isFocused)
+            .onChange(of: searchText) { _, newValue in
                 searchDebounceTask?.cancel()
-                
-                // Create new debounce task
                 searchDebounceTask = Task {
-                    try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                    try? await Task.sleep(nanoseconds: 300_000_000)  // 300ms debounce
                     if !Task.isCancelled {
                         await MainActor.run {
                             viewModel.updateSearchFragment(newValue)
@@ -165,19 +85,28 @@ struct LocationSearchView: View {
                     }
                 }
             }
+            .navigationTitle("Search Location")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
         }
-        .onDisappear {
-            // Clean up any pending search task
-            searchDebounceTask?.cancel()
-            searchDebounceTask = nil
+        .onAppear {
+            isFocused = true
+            viewModel.updateLocationManager(locationManager)
         }
     }
 }
 
 #Preview {
-    NavigationView {
-        LocationSearchView()
+    LocationSearchView { title, coordinate in
+        print("Selected: \(title) at \(coordinate)")
     }
+    .environmentObject(LocationManager())
 }
 
 // Alternative preview showing different states

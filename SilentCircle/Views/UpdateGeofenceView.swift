@@ -10,12 +10,10 @@ import MapKit
 import CoreData
 
 struct UpdateGeofenceView: View {
-    @EnvironmentObject private var locationManager: LocationManager
     @Environment(\.dismiss) private var dismiss
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var locationManager: LocationManager
     @StateObject private var viewModel: UpdateGeofenceViewModel
-    let geofence: Geofence
-    
     @State private var showingLocationSearch = false
     @State private var cardOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
@@ -23,6 +21,7 @@ struct UpdateGeofenceView: View {
     @State private var is3DEnabled = false
     @State private var mapPosition: MapCameraPosition
     @State private var isNavigationActive = true
+    private let geofence: Geofence
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext, geofence: Geofence) {
         self.geofence = geofence
@@ -275,7 +274,6 @@ struct UpdateGeofenceView: View {
         .ignoresSafeArea()
         .navigationBarHidden(true)
         .interactiveDismissDisabled()
-        #if compiler(>=5.9)
         .onChange(of: isNavigationActive) { oldValue, newValue in
             if !newValue {
                 Task {
@@ -283,15 +281,6 @@ struct UpdateGeofenceView: View {
                 }
             }
         }
-        #else
-        .onChange(of: isNavigationActive) { newValue in
-            if !newValue {
-                Task {
-                    await viewModel.geofenceListViewModel.fetchGeofences()
-                }
-            }
-        }
-        #endif
         .overlay(alignment: .topLeading) {
             Button(action: { dismiss() }) {
                 HStack(spacing: 4) {
@@ -343,15 +332,17 @@ struct UpdateGeofenceView: View {
     
     private func updateGeofence() {
         Task {
+            // Update the geofence properties
             geofence.name = viewModel.name
             geofence.latitude = viewModel.latitude
             geofence.longitude = viewModel.longitude
             geofence.radius = viewModel.radius
             geofence.isActive = viewModel.isActive
             
+            // Save changes and update the list
             PersistenceController.shared.saveIfNeeded()
-            await viewModel.geofenceListViewModel.fetchGeofences()
-            isNavigationActive = false
+            
+            // Dismiss the view
             dismiss()
         }
     }
@@ -381,6 +372,7 @@ struct UpdateGeofenceView: View {
 #Preview {
     let viewContext = PersistenceController.preview.container.viewContext
     let geofenceListViewModel = GeofenceListViewModel(viewContext: viewContext)
+    let locationManager = LocationManager()
     
     // Create a sample geofence for preview
     let geofence = Geofence(context: viewContext)
@@ -397,6 +389,7 @@ struct UpdateGeofenceView: View {
             viewContext: viewContext,
             geofence: geofence
         )
+        .environmentObject(locationManager)
     }
 }
 

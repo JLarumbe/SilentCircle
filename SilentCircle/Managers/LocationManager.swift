@@ -5,14 +5,16 @@ import CoreData
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     let manager: CLLocationManager
-    @Published var userLocation: CLLocation?
-    @Published var monitoredRegions: Set<CLCircularRegion> = []
-    @Published var monitoringStatus: MonitoringStatus = .unknown
-    @Published var currentGeofence: Geofence?
+    @Published private(set) var userLocation: CLLocation?
+    @Published private(set) var monitoredRegions: Set<CLCircularRegion> = []
+    @Published private(set) var monitoringStatus: MonitoringStatus = .unknown
+    @Published private(set) var currentGeofence: Geofence?
     private let locationSubject = PassthroughSubject<CLLocation, Never>()
     private var isRequestingLocation = false
     private var statusCheckTimer: Timer?
     private var shouldSendNotifications = true
+    private var lastLocationUpdate: Date?
+    private let minimumLocationUpdateInterval: TimeInterval = 1.0 // Minimum time between location updates
     
     enum MonitoringStatus {
         case ready
@@ -174,55 +176,66 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let userLocation = locations.last else { return }
+        
+        // Check if enough time has passed since last update
+        let now = Date()
+        if let lastUpdate = self.lastLocationUpdate,
+           now.timeIntervalSince(lastUpdate) < minimumLocationUpdateInterval {
+            return
+        }
+        
         print("📍 Location update: \(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)")
         
         Task { @MainActor in
+            self.lastLocationUpdate = now
             self.userLocation = userLocation
-        }
-        
-        var foundActiveGeofence = false
-        
-        for region in monitoredRegions {
-            guard let geofence = findGeofence(for: region) else { continue }
             
-            let center = CLLocation(
-                latitude: geofence.latitude,
-                longitude: geofence.longitude
-            )
+            // Only process geofences if we're actively monitoring
+            guard !monitoredRegions.isEmpty else { return }
             
-            let distance = userLocation.distance(from: center)
-            print("📍 Distance to '\(geofence.name ?? "Unknown")': \(Int(distance))m (radius: \(Int(geofence.radius))m)")
+            var foundActiveGeofence = false
+            for region in monitoredRegions {
+                guard let geofence = findGeofence(for: region) else { continue }
+                
+                let center = CLLocation(
+                    latitude: geofence.latitude,
+                    longitude: geofence.longitude
+                )
+                
+                let distance = userLocation.distance(from: center)
+                print("📍 Distance to '\(geofence.name ?? "Unknown")': \(Int(distance))m (radius: \(Int(geofence.radius))m)")
+                
+                if distance <= geofence.radius {
+                    // Only update if there's a change in geofence status
+                    if self.currentGeofence?.id != geofence.id {
+                        print("🎯 Entering geofence: '\(geofence.name ?? "Unknown")'")
+                        if shouldSendNotifications {
+                            NotificationManager.shared.scheduleNotification(
+                                title: "Entering Silent Circle (\(geofence.name ?? "Unknown"))",
+                                body: "Notifications will be turned off until you leave."
+                            )
+                        }
+                        self.currentGeofence = geofence
+                    }
+                    foundActiveGeofence = true
+                    print("✅ Inside geofence: '\(geofence.name ?? "Unknown")'")
+                    break
+                }
+            }
             
-            if distance <= geofence.radius {
-                // Only notify if we weren't already in this geofence
-                if self.currentGeofence?.id != geofence.id {
-                    print("🎯 Entering geofence: '\(geofence.name ?? "Unknown")'")
-                    if shouldSendNotifications {  // Only send if enabled
+            // Only update if there's a change in geofence status
+            if !foundActiveGeofence && self.currentGeofence != nil {
+                if let oldGeofence = self.currentGeofence {
+                    print("🚶‍♂️ Exiting geofence: '\(oldGeofence.name ?? "Unknown")'")
+                    if shouldSendNotifications {
                         NotificationManager.shared.scheduleNotification(
-                            title: "Entering Silent Circle (\(geofence.name ?? "Unknown"))",
-                            body: "Notifications will be turned off until you leave."
+                            title: "Exiting Silent Circle (\(oldGeofence.name ?? "Unknown"))",
+                            body: "Notifications have been restored."
                         )
                     }
                 }
-                self.currentGeofence = geofence
-                foundActiveGeofence = true
-                print("✅ Inside geofence: '\(geofence.name ?? "Unknown")'")
-                break
+                self.currentGeofence = nil
             }
-        }
-        
-        if !foundActiveGeofence {
-            // Only notify if we were in a geofence before
-            if let oldGeofence = self.currentGeofence {
-                print("🚶‍♂️ Exiting geofence: '\(oldGeofence.name ?? "Unknown")'")
-                if shouldSendNotifications {  // Only send if enabled
-                    NotificationManager.shared.scheduleNotification(
-                        title: "Exiting Silent Circle (\(oldGeofence.name ?? "Unknown"))",
-                        body: "Notifications have been restored."
-                    )
-                }
-            }
-            self.currentGeofence = nil
         }
     }
     

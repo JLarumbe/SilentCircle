@@ -9,6 +9,204 @@ import MapKit
 import CoreData
 import Combine
 
+struct LocationButtonView: View {
+    let onLocationRequest: () -> Void
+    
+    var body: some View {
+        Button(action: onLocationRequest) {
+            Image(systemName: "location.fill")
+                .foregroundStyle(.primary)
+                .frame(width: 40, height: 40)
+                .background(.thinMaterial)
+                .clipShape(Circle())
+                .shadow(radius: 2)
+        }
+        .padding()
+    }
+}
+
+struct MapContentView: View {
+    @Binding var mapPosition: MapCameraPosition
+    let pinCoordinate: CLLocationCoordinate2D
+    let radius: Double
+    let onTapLocation: (CLLocationCoordinate2D) -> Void
+    let onLocationRequest: () -> Void
+    
+    var body: some View {
+        if #available(iOS 17.0, *) {
+            MapReader { proxy in
+                Map(position: $mapPosition) {
+                    // Marker
+                    Marker("Silent Circle Location", coordinate: pinCoordinate)
+                        .tint(.blue)
+                    
+                    // Fill and border in a single MapCircle
+                    MapCircle(center: pinCoordinate, radius: radius)
+                        .foregroundStyle(.blue.opacity(0.15))
+                        .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+                }
+                .onTapGesture { location in
+                    if let coordinate = proxy.convert(location, from: .local) {
+                        onTapLocation(coordinate)
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .realistic))
+            .overlay(alignment: .bottomTrailing) {
+                LocationButtonView(onLocationRequest: onLocationRequest)
+            }
+        } else {
+            Map(position: $mapPosition) {
+                // Marker
+                Marker("Silent Circle Location", coordinate: pinCoordinate)
+                    .tint(.blue)
+                
+                // Fill and border in a single MapCircle
+                MapCircle(center: pinCoordinate, radius: radius)
+                    .foregroundStyle(.blue.opacity(0.15))
+                    .stroke(.blue.opacity(0.8), lineWidth: 1.5)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                LocationButtonView(onLocationRequest: onLocationRequest)
+            }
+        }
+    }
+}
+
+struct ControlPanelHeaderView: View {
+    let title: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.title3.weight(.semibold))
+            Spacer()
+        }
+    }
+}
+
+struct LocationNameFieldView: View {
+    @Binding var name: String
+    @FocusState.Binding var isFocused: Bool
+    
+    var body: some View {
+        TextField("Location Nickname", text: $name)
+            .textFieldStyle(.plain)
+            .padding()
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .focused($isFocused)
+    }
+}
+
+struct LocationInfoView: View {
+    @ObservedObject var viewModel: AddGeofenceViewModel
+    @Binding var showingLocationSearch: Bool
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Location Icon with Background
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 48, height: 48)
+                Image(systemName: "location.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 28))
+                    .foregroundStyle(.blue)
+            }
+            
+            // Location Text
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Location")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(viewModel.latitude == 0 ? "Move map to set location" : "Location selected")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(action: { 
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), 
+                                           to: nil, 
+                                           from: nil, 
+                                           for: nil)
+                showingLocationSearch = true
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 15, weight: .medium))
+                    Text("Search")
+                        .font(.callout.weight(.medium))
+                }
+                .foregroundStyle(.white)
+                .frame(width: 96, height: 34)
+                .background(
+                    Capsule()
+                        .fill(Color.blue)
+                        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                )
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct RadiusControlView: View {
+    @Binding var radius: Double
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Radius")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(radius))m")
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            
+            HStack(spacing: 12) {
+                Image(systemName: "circle.dotted")
+                    .foregroundStyle(.blue)
+                Slider(value: $radius, in: 10...500, step: 10)
+                    .tint(.blue)
+                Image(systemName: "circle")
+                    .foregroundStyle(.blue)
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct CreateButtonView: View {
+    let isValidGeofence: Bool
+    let onCreate: () -> Void
+    
+    var body: some View {
+        Button(action: onCreate) {
+            Text("Create Silent Circle")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isValidGeofence ? Color.blue : Color.gray.opacity(0.5))
+                )
+        }
+        .disabled(!isValidGeofence)
+        .padding(.top, 8)
+    }
+}
 
 struct AddGeofenceView: View {
     @Environment(\.dismiss) private var dismiss
@@ -22,19 +220,30 @@ struct AddGeofenceView: View {
     @State private var is3DEnabled = false
     @State private var mapPosition: MapCameraPosition = .region(MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
-        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)  // ✅ More zoomed in (was 0.05)
+        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
     ))
     @State private var currentCoordinate: CLLocationCoordinate2D
+    @State private var keyboardCancellable: AnyCancellable?
+    
+    private var showKeyboardPublisher: AnyPublisher<CGFloat, Never> {
+        NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+            .map { notification -> CGFloat in
+                let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+                return keyboardFrame?.height ?? 0
+            }
+            .eraseToAnyPublisher()
+    }
+    
+    private var hideKeyboardPublisher: AnyPublisher<CGFloat, Never> {
+        NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+            .map { _ in CGFloat(0) }
+            .eraseToAnyPublisher()
+    }
     
     private var keyboardPublisher: AnyPublisher<CGFloat, Never> {
-        Publishers.Merge(
-            NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
-                .map { ($0.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0 },
-            NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
-                .map { _ in CGFloat(0) }
-        )
-        .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
-        .eraseToAnyPublisher()
+        Publishers.Merge(showKeyboardPublisher, hideKeyboardPublisher)
+            .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
+            .eraseToAnyPublisher()
     }
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext) {
@@ -48,231 +257,66 @@ struct AddGeofenceView: View {
         ))
     }
     
+    private func requestLocation() {
+        Task {
+            print("📍 Requesting current location")
+            locationManager.requestLocation()
+            
+            // Wait for location update with timeout
+            for _ in 0..<10 {  // Try for 5 seconds
+                if let location = locationManager.userLocation {
+                    print("✅ Got location: \(location.coordinate)")
+                    await MainActor.run {
+                        mapPosition = .camera(MapCamera(
+                            centerCoordinate: location.coordinate,
+                            distance: 1000,
+                            heading: 0,
+                            pitch: 0
+                        ))
+                        viewModel.updateLocation(
+                            latitude: location.coordinate.latitude,
+                            longitude: location.coordinate.longitude
+                        )
+                    }
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                if #available(iOS 17.0, *) {
-                    MapReader { proxy in
-                        Map(position: $mapPosition) {
-                            Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
-                                .tint(.blue)
-                            
-                            MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
-                                .foregroundStyle(.blue.opacity(0.15))
-                                .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-                        }
-                        .onTapGesture { location in
-                            if let coordinate = proxy.convert(location, from: .local) {
-                                viewModel.handleMapTap(coordinate: coordinate)
-                            }
-                        }
-                    }
-                    .mapStyle(.standard(elevation: .realistic))
-                    .overlay(alignment: Alignment.bottomTrailing) {
-                        VStack(spacing: 8) {
-                            // Only keep the location button
-                            Button(action: {
-                                Task {
-                                    print("📍 Requesting current location")
-                                    locationManager.requestLocation()
-                                    
-                                    // Wait for location update with timeout
-                                    for _ in 0..<10 {  // Try for 5 seconds
-                                        if let location = locationManager.userLocation {
-                                            print("✅ Got location: \(location.coordinate)")
-                                            await MainActor.run {
-                                                mapPosition = .camera(MapCamera(
-                                                    centerCoordinate: location.coordinate,
-                                                    distance: 1000,
-                                                    heading: 0,
-                                                    pitch: 0
-                                                ))
-                                                viewModel.updateLocation(
-                                                    latitude: location.coordinate.latitude,
-                                                    longitude: location.coordinate.longitude
-                                                )
-                                            }
-                                            break
-                                        }
-                                        try? await Task.sleep(nanoseconds: 500_000_000)
-                                    }
-                                }
-                            }) {
-                                Image(systemName: "location.fill")
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 40, height: 40)
-                                    .background(.thinMaterial)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 2)
-                            }
-                        }
-                        .padding()
-                    }
-                    .frame(height: geometry.size.height * 0.45)
-                } else {
-                    // Fallback for earlier versions
-                    Map(position: $mapPosition, interactionModes: .all) {
-                        Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
-                            .tint(.blue)
-                        
-                        MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
-                            .foregroundStyle(.blue.opacity(0.15))
-                            .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-                    }
-                    .overlay(alignment: Alignment.bottomTrailing) {
-                        VStack(spacing: 8) {
-                            // Only keep the location button
-                            Button(action: {
-                                Task {
-                                    print("📍 Requesting current location")
-                                    locationManager.requestLocation()
-                                    
-                                    // Wait for location update with timeout
-                                    for _ in 0..<10 {  // Try for 5 seconds
-                                        if let location = locationManager.userLocation {
-                                            print("✅ Got location: \(location.coordinate)")
-                                            await MainActor.run {
-                                                mapPosition = .camera(MapCamera(
-                                                    centerCoordinate: location.coordinate,
-                                                    distance: 1000,
-                                                    heading: 0,
-                                                    pitch: 0
-                                                ))
-                                                viewModel.updateLocation(
-                                                    latitude: location.coordinate.latitude,
-                                                    longitude: location.coordinate.longitude
-                                                )
-                                            }
-                                            break
-                                        }
-                                        try? await Task.sleep(nanoseconds: 500_000_000)
-                                    }
-                                }
-                            }) {
-                                Image(systemName: "location.fill")
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 40, height: 40)
-                                    .background(.thinMaterial)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 2)
-                            }
-                        }
-                        .padding()
-                    }
-                    .frame(height: geometry.size.height * 0.45)
-                }
+                MapContentView(
+                    mapPosition: $mapPosition,
+                    pinCoordinate: viewModel.pinCoordinate,
+                    radius: viewModel.radius,
+                    onTapLocation: { coordinate in
+                        viewModel.handleMapTap(coordinate: coordinate)
+                    },
+                    onLocationRequest: requestLocation
+                )
+                .frame(height: geometry.size.height * 0.45)
                 
                 // Control Panel - exactly 50% height
                 VStack(spacing: 20) {
-                    // Header without close button
-                    HStack {
-                        Text("New Silent Circle")
-                            .font(.title3.weight(.semibold))
-                        Spacer()
-                    }
+                    ControlPanelHeaderView(title: "New Silent Circle")
                     
-                    // Main Content in ScrollView
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {  // Match UpdateGeofenceView spacing
-                            // Name Field
-                            TextField("Location Nickname", text: $viewModel.name)
-                                .textFieldStyle(.plain)
-                                .padding()
-                                .background(Color(.systemGray6))
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .focused($isFocused)
-                            
-                            // Location Info
-                            HStack(spacing: 12) {
-                                // Location Icon with Background
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.blue.opacity(0.15))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: "location.circle.fill")
-                                        .symbolRenderingMode(.hierarchical)
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(.blue)
-                                }
-                                
-                                // Location Text
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Location")
-                                        .font(.headline)
-                                        .foregroundStyle(.primary)
-                                    Text(viewModel.latitude == 0 ? "Move map to set location" : "Location selected")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                // Search Button with Background
-                                Button(action: { showingLocationSearch = true }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "magnifyingglass")
-                                            .font(.system(size: 15, weight: .medium))
-                                        Text("Search")
-                                            .font(.callout.weight(.medium))
+                        VStack(spacing: 16) {
+                            LocationNameFieldView(name: $viewModel.name, isFocused: $isFocused)
+                            LocationInfoView(viewModel: viewModel, showingLocationSearch: $showingLocationSearch)
+                            RadiusControlView(radius: $viewModel.radius)
+                            CreateButtonView(
+                                isValidGeofence: viewModel.isValidGeofence,
+                                onCreate: {
+                                    Task {
+                                        await viewModel.createGeofence()
+                                        dismiss()
                                     }
-                                    .foregroundStyle(.white)
-                                    .frame(width: 96, height: 34)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.blue)
-                                            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                                    )
                                 }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            
-                            // Radius Control
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Radius")
-                                        .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Text("\(Int(viewModel.radius))m")
-                                        .font(.subheadline.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
-                                
-                                HStack(spacing: 12) {
-                                    Image(systemName: "circle.dotted")
-                                        .foregroundStyle(.blue)
-                                    Slider(value: $viewModel.radius, in: 10...500, step: 10)
-                                        .tint(.blue)
-                                    Image(systemName: "circle")
-                                        .foregroundStyle(.blue)
-                                }
-                            }
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            
-                            // Create Button
-                            Button(action: {
-                                Task {
-                                    await viewModel.createGeofence()
-                                    dismiss()
-                                }
-                            }) {
-                                Text("Create Silent Circle")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 50)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(viewModel.isValidGeofence ? Color.blue : Color.gray.opacity(0.5))
-                                    )
-                            }
-                            .disabled(!viewModel.isValidGeofence)
-                            .padding(.top, 8)
+                            )
                         }
                     }
                 }
@@ -305,16 +349,21 @@ struct AddGeofenceView: View {
                 .foregroundStyle(.blue)
                 .padding(.horizontal)
                 .padding(.top, 8)
-                .opacity(isFocused ? 0 : 1)  // Hide back button when keyboard is shown
+                .opacity(isFocused ? 0 : 1)
                 .animation(.easeInOut, value: isFocused)
             }
         }
         .onAppear {
-            viewModel.setupKeyboardObservers(publisher: keyboardPublisher) { height in
+            // Set up keyboard observation
+            keyboardCancellable = keyboardPublisher.sink { height in
                 withAnimation(.easeOut(duration: 0.3)) {
                     keyboardHeight = height
                 }
             }
+        }
+        .onDisappear {
+            // Clean up keyboard observation
+            keyboardCancellable?.cancel()
         }
         .sheet(isPresented: $showingLocationSearch) {
             LocationSearchView(onLocationSelected: { name, coordinate in
@@ -358,12 +407,14 @@ struct AddGeofenceView: View {
 #Preview {
     let viewContext = PersistenceController.preview.container.viewContext
     let geofenceListViewModel = GeofenceListViewModel(viewContext: viewContext)
+    let locationManager = LocationManager()
     
     return NavigationView {
         AddGeofenceView(
             geofenceListViewModel: geofenceListViewModel,
             viewContext: viewContext
         )
+        .environmentObject(locationManager)
     }
 }
 

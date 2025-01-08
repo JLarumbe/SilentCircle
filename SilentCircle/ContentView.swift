@@ -12,8 +12,14 @@ import CoreLocation
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var locationManager = LocationManager()
+    @StateObject private var geofenceListViewModel: GeofenceListViewModel
     @State private var showError = false
     @State private var currentError: AppError?
+    
+    init() {
+        let viewModel = GeofenceListViewModel(viewContext: PersistenceController.shared.container.viewContext)
+        _geofenceListViewModel = StateObject(wrappedValue: viewModel)
+    }
     
     // Define possible app errors
     enum AppError: Error, LocalizedError {
@@ -47,23 +53,24 @@ struct ContentView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            GeofenceListView(viewContext: viewContext)
-                .environmentObject(locationManager)
-                .alert(isPresented: $showError) {
-                    Alert(
-                        title: Text("Error"),
-                        message: Text(currentError?.errorDescription ?? "An unknown error occurred"),
-                        dismissButton: .default(Text("OK"), action: {
-                            if case .permissionError = currentError {
-                                if let url = URL(string: UIApplication.openSettingsURLString) {
-                                    UIApplication.shared.open(url)
-                                }
-                            }
-                        })
-                    )
-                }
+        GeofenceListView(
+            viewModel: geofenceListViewModel,
+            locationManager: locationManager
+        )
+        .alert(isPresented: $showError) {
+            Alert(
+                title: Text("Error"),
+                message: Text(currentError?.errorDescription ?? "An unknown error occurred"),
+                dismissButton: .default(Text("OK"), action: {
+                    if case .permissionError = currentError {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                })
+            )
         }
+        .environmentObject(locationManager)
         .onAppear {
             checkLocationPermissions()
             locationManager.requestLocation()
@@ -83,11 +90,9 @@ struct ContentView: View {
             // Prompt for Always authorization if needed
             locationManager.manager.requestAlwaysAuthorization()
         case .authorizedAlways:
-            // We're good to go
-            setupBackgroundTasks()
+            break
         @unknown default:
-            currentError = .unknownError
-            showError = true
+            break
         }
     }
     

@@ -20,9 +20,9 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     
     private let searchCompleter: MKLocalSearchCompleter
     private var currentSearch: MKLocalSearch?
-    private let locationManager: LocationManager
+    private var locationManager: LocationManager
     
-    init(locationManager: LocationManager = LocationManager()) {
+    init(locationManager: LocationManager) {
         self.locationManager = locationManager
         self.searchCompleter = MKLocalSearchCompleter()
         super.init()
@@ -73,6 +73,16 @@ class LocationSearchViewModel: NSObject, ObservableObject {
                 self.selectedCoordinate = coordinate
                 completion(result.title, coordinate)
             }
+        }
+    }
+    
+    func updateLocationManager(_ newLocationManager: LocationManager) {
+        self.locationManager = newLocationManager
+        if let userLocation = newLocationManager.userLocation {
+            self.searchCompleter.region = MKCoordinateRegion(
+                center: userLocation.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+            )
         }
     }
 }
