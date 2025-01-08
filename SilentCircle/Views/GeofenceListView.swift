@@ -69,7 +69,7 @@ private struct GeofenceListMainView: View {
             viewModel.startObserving()
             // Start monitoring existing active geofences
             Task {
-                // Delay the geofence monitoring setup slightly to avoid state updates during view initialization
+                // Delay the geofence monitoring setup slightly
                 try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 second delay
                 for geofence in viewModel.geofences where geofence.isActive {
                     locationManager.startMonitoringGeofence(geofence)

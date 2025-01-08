@@ -8,6 +8,7 @@
 import SwiftUI
 import MapKit
 import CoreData
+import Combine
 
 struct UpdateGeofenceView: View {
     @Environment(\.dismiss) private var dismiss
@@ -23,6 +24,19 @@ struct UpdateGeofenceView: View {
     @State private var isNavigationActive = true
     private let geofence: Geofence
     @StateObject private var keyboardManager = KeyboardManager()
+    
+    // Add keyboard handling
+    @State private var keyboardCancellable: AnyCancellable?
+    private var keyboardPublisher: AnyPublisher<CGFloat, Never> {
+        Publishers.Merge(
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+                .map { notification -> CGFloat in
+                    (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
+                },
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+                .map { _ in CGFloat(0) }
+        ).eraseToAnyPublisher()
+    }
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext, geofence: Geofence) {
         self.geofence = geofence
@@ -47,83 +61,16 @@ struct UpdateGeofenceView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                if #available(iOS 17.0, *) {
-                    MapReader { proxy in
-                        Map(position: $mapPosition) {
-                            Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
-                            
-                            if viewModel.isValidGeofence {
-                                MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
-                                    .foregroundStyle(.blue.opacity(0.15))
-                                    .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-                            }
-                        }
-                        .onChange(of: viewModel.pinCoordinateWrapper) { oldValue, newValue in
-                            viewModel.debounceMapUpdate {
-                                mapPosition = .camera(MapCamera(
-                                    centerCoordinate: newValue.coordinate,
-                                    distance: 1000,
-                                    heading: 0,
-                                    pitch: 0
-                                ))
-                            }
-                        }
-                    }
-                    .mapStyle(.standard(elevation: .flat))
-                    .overlay(alignment: .bottomTrailing) {
-                        VStack(spacing: 8) {
-                            Button(action: {
-                                Task {
-                                    print("📍 Requesting current location")
-                                    locationManager.requestLocation()
-                                    
-                                    // Wait for location update with timeout
-                                    for _ in 0..<10 {  // Try for 5 seconds
-                                        if let location = locationManager.userLocation {
-                                            print("✅ Got location: \(location.coordinate)")
-                                            await MainActor.run {
-                                                mapPosition = .camera(MapCamera(
-                                                    centerCoordinate: location.coordinate,
-                                                    distance: 1000,
-                                                    heading: 0,
-                                                    pitch: 0
-                                                ))
-                                                viewModel.updateLocation(
-                                                    latitude: location.coordinate.latitude,
-                                                    longitude: location.coordinate.longitude
-                                                )
-                                            }
-                                            break
-                                        }
-                                        try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 second intervals
-                                    }
-                                }
-                            }) {
-                                Image(systemName: "location.fill")
-                                    .padding(8)
-                                    .background(.ultraThinMaterial)
-                                    .clipShape(Circle())
-                            }
-                        }
-                        .padding()
-                    }
-                    .frame(height: geometry.size.height * 0.45)
-                } else {
-                    // Fallback for earlier versions
-                    Map(position: $mapPosition) {
-                        Marker("Silent Circle Location", coordinate: viewModel.pinCoordinate)
-                            .tint(.blue)
-                        
-                        MapCircle(center: viewModel.pinCoordinate, radius: viewModel.radius)
-                            .foregroundStyle(.blue.opacity(0.15))
-                            .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-                    }
-                    .onTapGesture { location in
-                        if let coordinate = convertToCoordinate(location, in: geometry) {
-                            viewModel.handleMapTap(coordinate: coordinate)
-                        }
-                    }
-                }
+                MapContentView(
+                    mapPosition: $mapPosition,
+                    pinCoordinate: viewModel.pinCoordinate,
+                    radius: viewModel.radius,
+                    onTapLocation: { coordinate in
+                        viewModel.handleMapTap(coordinate: coordinate)
+                    },
+                    onLocationRequest: requestLocation
+                )
+                .frame(height: geometry.size.height * 0.45)
                 
                 // Control Panel - exactly 50% height
                 VStack(spacing: 20) {
@@ -313,9 +260,20 @@ struct UpdateGeofenceView: View {
             viewModel.latitude = geofence.latitude
             viewModel.longitude = geofence.longitude
             viewModel.isActive = geofence.isActive
+            
+            // Set up keyboard observation
+            keyboardCancellable = try? keyboardPublisher.sink { height in
+                Task { @MainActor in
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        keyboardHeight = height
+                    }
+                }
+            }
         }
         .onDisappear {
             viewModel.cleanup()
+            // Clean up keyboard observation
+            keyboardCancellable?.cancel()
         }
         .sheet(isPresented: $showingLocationSearch) {
             LocationSearchView(onLocationSelected: { name, coordinate in
@@ -339,12 +297,25 @@ struct UpdateGeofenceView: View {
             print("📍 Requesting current location")
             locationManager.requestLocation()
             
-            // Use async/await properly
-            try? await withTimeout(seconds: 5) {
-                guard let location = await waitForLocation() else { return }
-                await MainActor.run {
-                    updateMapPosition(with: location)
+            // Wait for location update with timeout
+            for _ in 0..<10 {  // Try for 5 seconds
+                if let location = locationManager.userLocation {
+                    print("✅ Got location: \(location.coordinate)")
+                    await MainActor.run {
+                        mapPosition = .camera(MapCamera(
+                            centerCoordinate: location.coordinate,
+                            distance: 1000,
+                            heading: 0,
+                            pitch: 0
+                        ))
+                        viewModel.updateLocation(
+                            latitude: location.coordinate.latitude,
+                            longitude: location.coordinate.longitude
+                        )
+                    }
+                    break
                 }
+                try? await Task.sleep(nanoseconds: 500_000_000)
             }
         }
     }
@@ -408,6 +379,13 @@ struct UpdateGeofenceView: View {
         let longitude = center.longitude + (normalizedPoint.x - 0.5) * span.longitudeDelta
         
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+    
+    private func extractCamera() -> MapCamera? {
+        if let camera = try? mapPosition.camera {
+            return camera
+        }
+        return nil
     }
 }
 

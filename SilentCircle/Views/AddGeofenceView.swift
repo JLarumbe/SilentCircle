@@ -9,70 +9,6 @@ import MapKit
 import CoreData
 import Combine
 
-struct LocationButtonView: View {
-    let onLocationRequest: () -> Void
-    
-    var body: some View {
-        Button(action: onLocationRequest) {
-            Image(systemName: "location.fill")
-                .foregroundStyle(.primary)
-                .frame(width: 40, height: 40)
-                .background(.thinMaterial)
-                .clipShape(Circle())
-                .shadow(radius: 2)
-        }
-        .padding()
-    }
-}
-
-struct MapContentView: View {
-    @Binding var mapPosition: MapCameraPosition
-    let pinCoordinate: CLLocationCoordinate2D
-    let radius: Double
-    let onTapLocation: (CLLocationCoordinate2D) -> Void
-    let onLocationRequest: () -> Void
-    
-    var body: some View {
-        if #available(iOS 17.0, *) {
-            MapReader { proxy in
-                Map(position: $mapPosition) {
-                    // Marker
-                    Marker("Silent Circle Location", coordinate: pinCoordinate)
-                        .tint(.blue)
-                    
-                    // Fill and border in a single MapCircle
-                    MapCircle(center: pinCoordinate, radius: radius)
-                        .foregroundStyle(.blue.opacity(0.15))
-                        .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-                }
-                .onTapGesture { location in
-                    if let coordinate = proxy.convert(location, from: .local) {
-                        onTapLocation(coordinate)
-                    }
-                }
-            }
-            .mapStyle(.standard(elevation: .realistic))
-            .overlay(alignment: .bottomTrailing) {
-                LocationButtonView(onLocationRequest: onLocationRequest)
-            }
-        } else {
-            Map(position: $mapPosition) {
-                // Marker
-                Marker("Silent Circle Location", coordinate: pinCoordinate)
-                    .tint(.blue)
-                
-                // Fill and border in a single MapCircle
-                MapCircle(center: pinCoordinate, radius: radius)
-                    .foregroundStyle(.blue.opacity(0.15))
-                    .stroke(.blue.opacity(0.8), lineWidth: 1.5)
-            }
-            .overlay(alignment: .bottomTrailing) {
-                LocationButtonView(onLocationRequest: onLocationRequest)
-            }
-        }
-    }
-}
-
 struct ControlPanelHeaderView: View {
     let title: String
     
@@ -225,25 +161,15 @@ struct AddGeofenceView: View {
     @State private var currentCoordinate: CLLocationCoordinate2D
     @State private var keyboardCancellable: AnyCancellable?
     
-    private var showKeyboardPublisher: AnyPublisher<CGFloat, Never> {
-        NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
-            .map { notification -> CGFloat in
-                let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-                return keyboardFrame?.height ?? 0
-            }
-            .eraseToAnyPublisher()
-    }
-    
-    private var hideKeyboardPublisher: AnyPublisher<CGFloat, Never> {
-        NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
-            .map { _ in CGFloat(0) }
-            .eraseToAnyPublisher()
-    }
-    
     private var keyboardPublisher: AnyPublisher<CGFloat, Never> {
-        Publishers.Merge(showKeyboardPublisher, hideKeyboardPublisher)
-            .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
-            .eraseToAnyPublisher()
+        Publishers.Merge(
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+                .map { notification -> CGFloat in
+                    (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
+                },
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+                .map { _ in CGFloat(0) }
+        ).eraseToAnyPublisher()
     }
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext) {
