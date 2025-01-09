@@ -75,11 +75,27 @@ class PersistenceController {
     // Add property to track save state
     private var isSaving = false
 
+    // Background context for heavy operations
+    private lazy var backgroundContext: NSManagedObjectContext = {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        context.automaticallyMergesChangesFromParent = true
+        return context
+    }()
+    
     // Initialize the Core Data stack
     init(inMemory: Bool = false) {
         self.inMemory = inMemory
+        
+        if inMemory {
+            print("💾 DEBUG: Initializing in-memory Core Data stack")
+        } else {
+            print("💾 DEBUG: Initializing persistent Core Data stack")
+        }
+        
         setupObservers()
         setupSavePublisher()
+        print("✅ DEBUG: Core Data stack initialization complete")
     }
     
     // Helper method to create a new background context
@@ -96,13 +112,20 @@ class PersistenceController {
     }
     
     private func save() {
-        guard !isSaving else { return }
+        guard !isSaving else {
+            print("⏳ DEBUG: Save already in progress, skipping")
+            return
+        }
+        
+        print("💾 DEBUG: Starting context save operation")
         isSaving = true
         
         do {
             try container.viewContext.save()
+            print("✅ DEBUG: Successfully saved view context")
         } catch {
-            print("❌ Error saving context: \(error)")
+            print("❌ DEBUG: Failed to save view context")
+            print("❌ DEBUG: Error: \(error.localizedDescription)")
         }
         
         isSaving = false
@@ -144,4 +167,121 @@ class PersistenceController {
             }
         }
     #endif
+    
+    // MARK: - Background Operations
+    
+    /// Perform a task in the background context
+    func performBackgroundTask<T>(_ block: @escaping (NSManagedObjectContext) throws -> T) async throws -> T {
+        try await backgroundContext.perform {
+            try block(self.backgroundContext)
+        }
+    }
+    
+    /// Save changes in the background context
+    func saveBackgroundContext() async throws {
+        try await backgroundContext.perform {
+            guard self.backgroundContext.hasChanges else {
+                print("ℹ️ DEBUG: No changes in background context to save")
+                return
+            }
+            
+            print("💾 DEBUG: Saving background context changes")
+            try self.backgroundContext.save()
+            print("✅ DEBUG: Successfully saved background context")
+        }
+    }
+    
+    // MARK: - Batch Operations
+    
+    /// Perform a batch update operation
+    func batchUpdate(
+        entityName: String,
+        propertiesToUpdate: [AnyHashable: Any]
+    ) async throws {
+        print("\n🔄 DEBUG: Starting batch update operation")
+        print("📝 DEBUG: Entity: \(entityName)")
+        print("🔧 DEBUG: Properties to update: \(propertiesToUpdate)")
+        
+        let request = NSBatchUpdateRequest(entityName: entityName)
+        request.propertiesToUpdate = propertiesToUpdate
+        request.resultType = .updatedObjectIDsResultType
+        
+        try await performBackgroundTask { context in
+            let result = try context.execute(request) as? NSBatchUpdateResult
+            let changes = [NSUpdatedObjectIDsKey: result?.result as? [NSManagedObjectID] ?? []]
+            
+            print("🔄 DEBUG: Merging changes to view context")
+            NSManagedObjectContext.mergeChanges(
+                fromRemoteContextSave: changes,
+                into: [self.container.viewContext]
+            )
+            
+            print("✅ DEBUG: Successfully completed batch update")
+            if let count = (result?.result as? [NSManagedObjectID])?.count {
+                print("📊 DEBUG: Updated \(count) objects")
+            }
+        }
+    }
+    
+    /// Perform a batch delete operation
+    func batchDelete(
+        fetchRequest: NSFetchRequest<NSFetchRequestResult>
+    ) async throws {
+        print("\n🗑️ DEBUG: Starting batch delete operation")
+        
+        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        request.resultType = .resultTypeObjectIDs
+        
+        try await performBackgroundTask { context in
+            let result = try context.execute(request) as? NSBatchDeleteResult
+            let changes = [NSDeletedObjectIDsKey: result?.result as? [NSManagedObjectID] ?? []]
+            
+            print("🔄 DEBUG: Merging changes to view context")
+            NSManagedObjectContext.mergeChanges(
+                fromRemoteContextSave: changes,
+                into: [self.container.viewContext]
+            )
+            
+            print("✅ DEBUG: Successfully completed batch delete")
+            if let count = (result?.result as? [NSManagedObjectID])?.count {
+                print("📊 DEBUG: Deleted \(count) objects")
+            }
+        }
+    }
+    
+    // MARK: - Utility Methods
+    
+    /// Fetch objects in background
+    func fetchInBackground<T: NSManagedObject>(
+        fetchRequest: NSFetchRequest<T>
+    ) async throws -> [T] {
+        print("\n🔍 DEBUG: Starting background fetch")
+        print("📝 DEBUG: Entity: \(T.entity().name ?? "Unknown")")
+        
+        let results = try await performBackgroundTask { context in
+            let results = try context.fetch(fetchRequest)
+            print("✅ DEBUG: Successfully fetched \(results.count) objects")
+            return results
+        }
+        
+        return results
+    }
+    
+    /// Create object in background
+    func createInBackground<T: NSManagedObject>(
+        _ entityType: T.Type,
+        configure: @escaping (T) -> Void
+    ) async throws {
+        print("\n📝 DEBUG: Creating new object in background")
+        print("📝 DEBUG: Entity: \(T.entity().name ?? "Unknown")")
+        
+        try await performBackgroundTask { context in
+            let object = T(context: context)
+            configure(object)
+            
+            print("💾 DEBUG: Saving new object")
+            try context.save()
+            print("✅ DEBUG: Successfully created and saved new object")
+        }
+    }
 }
