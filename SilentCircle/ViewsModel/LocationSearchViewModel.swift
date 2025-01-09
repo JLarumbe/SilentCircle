@@ -13,6 +13,7 @@ struct MapLocation: Identifiable {
     let coordinate: CLLocationCoordinate2D
 }
 
+@MainActor
 class LocationSearchViewModel: NSObject, ObservableObject {
     @Published var searchResults: [MKLocalSearchCompletion] = []
     @Published var selectedLocation: String?
@@ -29,6 +30,12 @@ class LocationSearchViewModel: NSObject, ObservableObject {
         self.searchCompleter.resultTypes = [.address, .pointOfInterest, .query]
         self.setupCompleter()
         
+        Task {
+            await setupInitialRegion()
+        }
+    }
+    
+    private func setupInitialRegion() {
         if let userLocation = locationManager.userLocation {
             self.searchCompleter.region = MKCoordinateRegion(
                 center: userLocation.coordinate,
@@ -78,24 +85,21 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     
     func updateLocationManager(_ newLocationManager: LocationManager) {
         self.locationManager = newLocationManager
-        if let userLocation = newLocationManager.userLocation {
-            self.searchCompleter.region = MKCoordinateRegion(
-                center: userLocation.coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-            )
+        Task {
+            await setupInitialRegion()
         }
     }
 }
 
 // Add extension for MKLocalSearchCompleterDelegate
 extension LocationSearchViewModel: MKLocalSearchCompleterDelegate {
-    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        DispatchQueue.main.async {
+    nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        Task { @MainActor in
             self.searchResults = completer.results
         }
     }
     
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+    nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
         print("Error: \(error.localizedDescription)")
     }
 }
