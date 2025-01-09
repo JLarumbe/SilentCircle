@@ -345,6 +345,12 @@ struct UpdateGeofenceView: View {
     
     private func updateGeofence() {
         Task {
+            print("\n🔄 DEBUG: Updating geofence")
+            print("📍 DEBUG: New location: (\(viewModel.latitude), \(viewModel.longitude))")
+            
+            // Stop monitoring the old geofence
+            locationManager.stopMonitoringGeofence(geofence)
+            
             // Update the geofence properties
             geofence.name = viewModel.name
             geofence.latitude = viewModel.latitude
@@ -352,8 +358,13 @@ struct UpdateGeofenceView: View {
             geofence.radius = viewModel.radius
             geofence.isActive = viewModel.isActive
             
-            // Save changes and update the list
+            // Save changes
             PersistenceController.shared.saveIfNeeded()
+            
+            // Start monitoring the updated geofence
+            if geofence.isActive {
+                locationManager.startMonitoringGeofence(geofence)
+            }
             
             // Dismiss the view
             dismiss()
