@@ -1,0 +1,176 @@
+{
+  "source": "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/UpdateGeofenceView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Update Silent Circle",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 78
+        }
+      },
+      {
+        "comment": "",
+        "key": "Update",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "Location Nickname",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 108
+        }
+      },
+      {
+        "comment": "",
+        "key": "Silent Circle Status",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 193
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active",
+        "location": {
+          "startingColumn": 70,
+          "startingLine": 194
+        }
+      },
+      {
+        "comment": "",
+        "key": "Inactive",
+        "location": {
+          "startingColumn": 81,
+          "startingLine": 194
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to toggle Silent Circle status",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 195
+        }
+      },
+      {
+        "comment": "",
+        "key": "Location",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 128
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move map to set location",
+        "location": {
+          "startingColumn": 68,
+          "startingLine": 131
+        }
+      },
+      {
+        "comment": "",
+        "key": "Location selected",
+        "location": {
+          "startingColumn": 97,
+          "startingLine": 131
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 149
+        }
+      },
+      {
+        "comment": "",
+        "key": "Silent Circle Status",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 179
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 182
+        }
+      },
+      {
+        "comment": "",
+        "key": "Inactive",
+        "location": {
+          "startingColumn": 78,
+          "startingLine": 182
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current radius: %lld meters",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "Radius",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 199
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "Adjust radius",
+        "location": {
+          "startingColumn": 61,
+          "startingLine": 215
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld meters",
+        "location": {
+          "startingColumn": 61,
+          "startingLine": 216
+        }
+      },
+      {
+        "comment": "",
+        "key": "Slide left to decrease or right to increase the radius",
+        "location": {
+          "startingColumn": 60,
+          "startingLine": 217
+        }
+      },
+      {
+        "comment": "",
+        "key": "Back",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 251
+        }
+      }
+    ]
+  },
+  "version": 1
+}

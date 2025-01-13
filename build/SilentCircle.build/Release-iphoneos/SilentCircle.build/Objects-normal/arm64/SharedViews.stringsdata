@@ -1,0 +1,56 @@
+{
+  "source": "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/SharedViews.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Map showing Silent Circle location",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap anywhere on the map to set the Silent Circle location. A marker shows the center location and a circle shows the boundary with %lld meters radius.",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "Silent Circle Location",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 31
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use current location",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 50
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to center the map on your current location",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 51
+        }
+      },
+      {
+        "comment": "",
+        "key": "Silent Circle Location",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 55
+        }
+      }
+    ]
+  },
+  "version": 1
+}

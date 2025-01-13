@@ -1,0 +1,9 @@
+"/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Extensions/CLLocationCoordinate2D+Equatable.swift":
+  abi-baseline-json: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle.abi.json"
+  objc-header: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-Swift.h"
+  dependencies: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master.d"
+  swiftdoc: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle.swiftdoc"
+  swiftsourceinfo: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle.swiftsourceinfo"
+  swiftmodule: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle.swiftmodule"
+  const-values: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master.swiftconstvalues"
+  diagnostics: "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master.dia"

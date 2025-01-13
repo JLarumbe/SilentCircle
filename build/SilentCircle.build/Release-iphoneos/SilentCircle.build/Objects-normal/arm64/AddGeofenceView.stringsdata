@@ -1,0 +1,80 @@
+{
+  "source": "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/AddGeofenceView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Location Nickname",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 29
+        }
+      },
+      {
+        "comment": "",
+        "key": "Location",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 57
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move map to set location",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 60
+        }
+      },
+      {
+        "comment": "",
+        "key": "Location selected",
+        "location": {
+          "startingColumn": 77,
+          "startingLine": 60
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 77
+        }
+      },
+      {
+        "comment": "",
+        "key": "Radius",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 102
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 106
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create Silent Circle",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 132
+        }
+      },
+      {
+        "comment": "",
+        "key": "Back",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 272
+        }
+      }
+    ]
+  },
+  "version": 1
+}

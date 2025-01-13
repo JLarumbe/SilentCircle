@@ -1,0 +1,32 @@
+{
+  "source": "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/StatusBarView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Location Status: %@",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 24
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monitoring Status: %@",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currently active Silent Circle: %@",
+        "location": {
+          "startingColumn": 37,
+          "startingLine": 43
+        }
+      }
+    ]
+  },
+  "version": 1
+}

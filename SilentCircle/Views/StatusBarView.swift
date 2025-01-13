@@ -13,34 +13,34 @@ public struct StatusBarView: View {
     public init() {}
     
     public var body: some View {
-        VStack(spacing: 12) {
-            // Location Status Group
-            StatusGroup(
+        VStack(spacing: 8) {
+            // Location Status
+            StatusIndicator(
                 icon: locationStatusIcon,
                 iconColor: locationStatusColor,
-                title: "Location",
-                status: locationStatusText,
-                background: .clear
+                status: locationStatusText
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Location Status: \(locationStatusText)")
             
-            // Monitoring Status Group
-            StatusGroup(
+            // Monitoring Status
+            StatusIndicator(
                 icon: monitoringStatusIcon,
                 iconColor: monitoringStatusColor,
-                title: "Monitoring",
-                status: monitoringStatusText,
-                background: .clear
+                status: monitoringStatusText
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Monitoring Status: \(monitoringStatusText)")
             
-            // Active Circle Status - Only show when inside a geofence
             if let name = activeGeofenceName {
-                StatusGroup(
-                    icon: "checkmark.shield.fill",
-                    iconColor: .green,
-                    title: "Active Circle",
+                StatusIndicator(
+                    icon: "bell.fill",
+                    iconColor: .purple,
                     status: name,
-                    background: Color.green.opacity(0.1)
+                    background: Color.purple.opacity(0.1)
                 )
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Currently active Silent Circle: \(name)")
             }
         }
         .padding(.horizontal, 16)
@@ -64,7 +64,7 @@ public struct StatusBarView: View {
     private var locationStatusColor: Color {
         switch locationManager.monitoringStatus {
         case .ready, .noGeofences:
-            return .green
+            return .purple
         case .noLocation:
             return .orange
         case .notAuthorized:
@@ -106,9 +106,9 @@ public struct StatusBarView: View {
     private var monitoringStatusColor: Color {
         switch locationManager.monitoringStatus {
         case .ready:
-            return .green
+            return .purple
         case .noGeofences:
-            return .blue
+            return .purple
         case .noLocation:
             return .orange
         case .notAuthorized:

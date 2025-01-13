@@ -14,9 +14,22 @@ class GeofenceListViewModel: ObservableObject {
     private var lastFetchTime: Date?
     private let minimumFetchInterval: TimeInterval = 1.0
     private var isInitialFetch = true
+    private let id = UUID()
+    weak var locationManager: LocationManager?
     
-    init(viewContext: NSManagedObjectContext) {
+    init(viewContext: NSManagedObjectContext, locationManager: LocationManager? = nil) {
+        #if DEBUG
+        print("\n📦 DEBUG: GeofenceListViewModel init")
+        print("📍 DEBUG: ViewModel ID: \(UUID())")
+        if let locationManager = locationManager {
+            print("🔄 DEBUG: LocationManager: \(ObjectIdentifier(locationManager))")
+        } else {
+            print("🔄 DEBUG: LocationManager: nil")
+        }
+        #endif
+        
         self.viewContext = viewContext
+        self.locationManager = locationManager
         self.fetchRequest = NSFetchRequest<Geofence>(entityName: "Geofence")
         self.fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Geofence.name, ascending: true)]
         self.fetchRequest.fetchBatchSize = 20
@@ -24,16 +37,25 @@ class GeofenceListViewModel: ObservableObject {
         // Perform initial fetch synchronously to avoid state updates
         do {
             self.geofences = try viewContext.fetch(fetchRequest)
-            print("✅ Initial fetch: \(self.geofences.count) geofences")
+            print("✅ DEBUG: Initial fetch: \(self.geofences.count) geofences")
         } catch {
-            print("❌ Error in initial fetch: \(error)")
+            print("❌ DEBUG: Error in initial fetch: \(error)")
         }
+        
+        #if DEBUG
+        print("✅ DEBUG: GeofenceListViewModel init complete")
+        #endif
     }
     
     func fetchGeofences() async {
         // Skip if this is too soon after the last fetch
         if let lastFetch = lastFetchTime,
-           Date().timeIntervalSince(lastFetch) < minimumFetchInterval {
+           Date().timeIntervalSince(lastFetch) < minimumFetchInterval,
+           !isInitialFetch {
+            #if DEBUG
+            print("\n⏱️ DEBUG: Skipping fetch - too soon")
+            print("📍 DEBUG: ViewModel ID: \(id)")
+            #endif
             return
         }
         
@@ -44,15 +66,27 @@ class GeofenceListViewModel: ObservableObject {
             
             // Only update if the geofences have actually changed
             if !geofencesAreEqual(newGeofences, geofences) {
+                #if DEBUG
+                print("\n🔄 DEBUG: Updating geofences")
+                print("📍 DEBUG: ViewModel ID: \(id)")
+                print("📊 DEBUG: Old count: \(self.geofences.count)")
+                print("📊 DEBUG: New count: \(newGeofences.count)")
+                #endif
+                
                 self.geofences = newGeofences
                 lastFetchTime = Date()
                 if !isInitialFetch {
-                    print("✅ Fetched \(self.geofences.count) geofences")
+                    print("✅ DEBUG: Fetched \(self.geofences.count) geofences")
                 }
+            } else {
+                #if DEBUG
+                print("\n✨ DEBUG: No changes in geofences")
+                print("📍 DEBUG: ViewModel ID: \(id)")
+                #endif
             }
             isInitialFetch = false
         } catch {
-            print("❌ Error fetching geofences: \(error)")
+            print("❌ DEBUG: Error fetching geofences: \(error)")
         }
     }
     
@@ -62,7 +96,19 @@ class GeofenceListViewModel: ObservableObject {
     }
     
     func startObserving() {
-        guard !isObserving else { return }
+        guard !isObserving else {
+            #if DEBUG
+            print("\n⚠️ DEBUG: Already observing changes")
+            print("📍 DEBUG: ViewModel ID: \(id)")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("\n👀 DEBUG: Starting observation")
+        print("📍 DEBUG: ViewModel ID: \(id)")
+        #endif
+        
         isObserving = true
         
         // Setup Core Data observation with increased debounce
@@ -73,6 +119,13 @@ class GeofenceListViewModel: ObservableObject {
             }
             .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
+                #if DEBUG
+                if let self = self {
+                    print("\n💾 DEBUG: Core Data changes detected")
+                    print("📍 DEBUG: ViewModel ID: \(self.id)")
+                }
+                #endif
+                
                 Task { [weak self] in
                     await self?.fetchGeofences()
                 }
@@ -94,6 +147,11 @@ class GeofenceListViewModel: ObservableObject {
     }
     
     func stopObserving() {
+        #if DEBUG
+        print("\n🛑 DEBUG: Stopping observation")
+        print("📍 DEBUG: ViewModel ID: \(id)")
+        #endif
+        
         isObserving = false
         cancellables.removeAll()
     }

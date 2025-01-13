@@ -8,28 +8,27 @@ struct EmptyStateView: View {
     let description: String
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Image(systemName: systemImage)
-                .font(.system(size: 50))
-                .foregroundColor(.gray)
+                .font(.system(size: 64))
+                .foregroundStyle(.purple)
             Text(title)
-                .font(.title2)
-                .fontWeight(.medium)
+                .font(.title2.weight(.bold))
             Text(description)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .font(.body)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(Color(.systemGroupedBackground))
     }
 }
 
 struct LocationSearchView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var locationManager: LocationManager
-    @StateObject private var viewModel: LocationSearchViewModel
+    @StateObject private var viewModel = LocationSearchViewModel()
     @State private var searchText = ""
     @FocusState private var isFocused: Bool
     @State private var searchDebounceTask: Task<Void, Never>?
@@ -38,59 +37,99 @@ struct LocationSearchView: View {
     
     init(onLocationSelected: ((String, CLLocationCoordinate2D) -> Void)? = nil) {
         self.onLocationSelected = onLocationSelected
-        let tempLocationManager = LocationManager()
-        _viewModel = StateObject(wrappedValue: LocationSearchViewModel(locationManager: tempLocationManager))
     }
     
     var body: some View {
-        NavigationView {
-            VStack {
-                if viewModel.searchResults.isEmpty && searchText.isEmpty {
-                    EmptyStateView(
-                        title: "Search Location",
-                        systemImage: "magnifyingglass",
-                        description: "Enter an address or place name to search"
-                    )
-                } else {
-                    List(viewModel.searchResults, id: \.self) { result in
-                        Button {
-                            viewModel.selectLocation(result) { title, coordinate in
-                                if let onLocationSelected = onLocationSelected {
-                                    onLocationSelected(title, coordinate)
+        NavigationStack {
+            ZStack {
+                // Background
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Search Bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Search for a location", text: $searchText)
+                            .textFieldStyle(.plain)
+                            .focused($isFocused)
+                            .tint(.purple)
+                        if !searchText.isEmpty {
+                            Button(action: { searchText = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemGroupedBackground))
+                    
+                    // Results or Empty State
+                    if viewModel.searchResults.isEmpty && !searchText.isEmpty {
+                        EmptyStateView(
+                            title: "No Results Found",
+                            systemImage: "mappin.slash",
+                            description: "Try searching for a different location or address"
+                        )
+                    } else if !searchText.isEmpty {
+                        // Results List
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(viewModel.searchResults, id: \.self) { result in
+                                    Button {
+                                        viewModel.selectLocation(result) { name, coordinate in
+                                            onLocationSelected?(name, coordinate)
+                                        }
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(result.title)
+                                                .font(.headline)
+                                                .foregroundStyle(.primary)
+                                            Text(result.subtitle)
+                                                .font(.subheadline)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding()
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .fill(Color(.secondarySystemGroupedBackground))
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                                dismiss()
                             }
-                        } label: {
-                            VStack(alignment: .leading) {
-                                Text(result.title)
-                                    .font(.headline)
-                                Text(result.subtitle)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
+                            .padding()
                         }
+                    } else {
+                        // Initial State
+                        EmptyStateView(
+                            title: "Find a Location",
+                            systemImage: "location.magnifyingglass",
+                            description: "Search for an address or place to set your Silent Circle"
+                        )
                     }
                 }
             }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
-            .focused($isFocused)
-            .onChange(of: searchText) { _, newValue in
-                searchDebounceTask?.cancel()
-                searchDebounceTask = Task {
-                    try? await Task.sleep(nanoseconds: 300_000_000)  // 300ms debounce
-                    if !Task.isCancelled {
-                        await MainActor.run {
-                            viewModel.updateSearchFragment(newValue)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Search Location")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.purple)
+                    }
+                }
+            }
+        }
+        .onChange(of: searchText) { _, newValue in
+            searchDebounceTask?.cancel()
+            searchDebounceTask = Task {
+                try? await Task.sleep(nanoseconds: 300_000_000)  // 300ms debounce
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        viewModel.updateSearchFragment(newValue)
                     }
                 }
             }

@@ -15,10 +15,38 @@ struct ContentView: View {
     @StateObject private var geofenceListViewModel: GeofenceListViewModel
     @State private var showError = false
     @State private var currentError: AppError?
+    private let id = UUID()
     
     init() {
-        let viewModel = GeofenceListViewModel(viewContext: PersistenceController.shared.container.viewContext)
+        #if DEBUG
+        print("\n🎯 DEBUG: ContentView init")
+        print("📍 DEBUG: View ID: \(UUID())")
+        #endif
+        
+        // Create LocationManager first
+        let locationManager = LocationManager()
+        
+        #if DEBUG
+        print("📱 DEBUG: Created LocationManager: \(ObjectIdentifier(locationManager))")
+        #endif
+        
+        // Create ViewModel with LocationManager
+        let viewModel = GeofenceListViewModel(
+            viewContext: PersistenceController.shared.container.viewContext,
+            locationManager: locationManager
+        )
+        
+        #if DEBUG
+        print("🔄 DEBUG: Created GeofenceListViewModel: \(ObjectIdentifier(viewModel))")
+        #endif
+        
+        // Initialize state objects
+        _locationManager = StateObject(wrappedValue: locationManager)
         _geofenceListViewModel = StateObject(wrappedValue: viewModel)
+        
+        #if DEBUG
+        print("✅ DEBUG: ContentView init complete")
+        #endif
     }
     
     // Define possible app errors
@@ -42,39 +70,54 @@ struct ContentView: View {
         }
     }
     
-    private func setupBackgroundTasks() {
-        // Start monitoring existing geofences
-        let fetchRequest: NSFetchRequest<Geofence> = Geofence.fetchRequest()
-        if let geofences = try? viewContext.fetch(fetchRequest) {
-            for geofence in geofences where geofence.isActive {
-                locationManager.startMonitoringGeofence(geofence)
-            }
-        }
-    }
-    
     var body: some View {
-        GeofenceListView(
-            viewModel: geofenceListViewModel,
-            locationManager: locationManager
-        )
-        .alert(isPresented: $showError) {
-            Alert(
-                title: Text("Error"),
-                message: Text(currentError?.errorDescription ?? "An unknown error occurred"),
-                dismissButton: .default(Text("OK"), action: {
-                    if case .permissionError = currentError {
+        GeofenceListView(viewModel: geofenceListViewModel)
+            .environment(\.managedObjectContext, viewContext)
+            .environmentObject(locationManager)
+            .alert(
+                "Error",
+                isPresented: $showError,
+                presenting: currentError
+            ) { error in
+                Button("OK") {
+                    if case .permissionError = error {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)
                         }
                     }
-                })
-            )
-        }
-        .environmentObject(locationManager)
-        .onAppear {
-            checkLocationPermissions()
-            locationManager.requestLocation()
-            setupBackgroundTasks()
+                }
+            } message: { error in
+                Text(error.localizedDescription)
+            }
+            .onAppear {
+                #if DEBUG
+                print("\n📱 DEBUG: ContentView appeared")
+                print("📍 DEBUG: View ID: \(id)")
+                print("🔄 DEBUG: Using GeofenceListViewModel: \(ObjectIdentifier(geofenceListViewModel))")
+                #endif
+            }
+            // Add a stable identity to prevent unnecessary view recreation
+            .id("root-geofence-list")
+    }
+    
+    private func setupBackgroundTasks() async {
+        print("\n🔄 DEBUG: Setting up background tasks")
+        
+        // Start monitoring existing geofences
+        let fetchRequest: NSFetchRequest<Geofence> = Geofence.fetchRequest()
+        if let geofences = try? viewContext.fetch(fetchRequest) {
+            print("📍 DEBUG: Found \(geofences.count) geofences")
+            
+            // First, start monitoring all active geofences
+            for geofence in geofences where geofence.isActive {
+                locationManager.startMonitoringGeofence(geofence)
+            }
+            
+            // Only request location if we don't have one
+            if locationManager.userLocation == nil {
+                print("⚠️ DEBUG: No location available yet, will check when location updates")
+                locationManager.requestLocation()
+            }
         }
     }
     

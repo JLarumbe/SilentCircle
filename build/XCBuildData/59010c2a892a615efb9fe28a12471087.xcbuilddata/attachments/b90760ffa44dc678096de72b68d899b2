@@ -1,0 +1,140 @@
+{
+  "" : {
+    "const-values" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master.swiftconstvalues",
+    "dependencies" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master.d",
+    "diagnostics" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master.dia",
+    "emit-module-dependencies" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master-emit-module.dia",
+    "swift-dependencies" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle-master.swiftdeps"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ContentView.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Extensions/CLLocationCoordinate2D+Equatable.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/CLLocationCoordinate2D+Equatable.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/CLLocationCoordinate2D+Equatable.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/CLLocationCoordinate2D+Equatable.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/GeofenceFetchManager.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceFetchManager.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceFetchManager.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceFetchManager.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/KeyboardManager.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/KeyboardManager.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/KeyboardManager.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/KeyboardManager.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/LocationManager.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationManager.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationManager.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationManager.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/NotificationManager.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/NotificationManager.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/NotificationManager.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/NotificationManager.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Models/CoordinateWrapper.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/CoordinateWrapper.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/CoordinateWrapper.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/CoordinateWrapper.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Persistence.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Persistence.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Persistence.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Persistence.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/SilentCircleApp.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircleApp.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircleApp.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircleApp.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/AddGeofenceView.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/AddGeofenceView.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/AddGeofenceView.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/AddGeofenceView.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/Components/StatusGroup.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusGroup.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusGroup.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusGroup.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/Components/StatusIndicator.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusIndicator.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusIndicator.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusIndicator.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/GeofenceCell.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceCell.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceCell.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceCell.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/GeofenceListView.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceListView.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceListView.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceListView.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/LocationSearchView.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationSearchView.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationSearchView.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationSearchView.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/SharedViews.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SharedViews.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SharedViews.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SharedViews.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/StatusBarView.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusBarView.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusBarView.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/StatusBarView.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/UpdateGeofenceView.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/UpdateGeofenceView.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/UpdateGeofenceView.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/UpdateGeofenceView.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/AddGeofenceViewModel.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/AddGeofenceViewModel.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/AddGeofenceViewModel.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/AddGeofenceViewModel.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/GeofenceListViewModel.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceListViewModel.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceListViewModel.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeofenceListViewModel.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/LocationSearchViewModel.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationSearchViewModel.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationSearchViewModel.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/LocationSearchViewModel.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/UpdateGeofenceViewModel.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/UpdateGeofenceViewModel.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/UpdateGeofenceViewModel.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/UpdateGeofenceViewModel.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/CoreDataGenerated/SilentCircle/Geofence+CoreDataClass.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Geofence+CoreDataClass.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Geofence+CoreDataClass.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Geofence+CoreDataClass.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/CoreDataGenerated/SilentCircle/Geofence+CoreDataProperties.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Geofence+CoreDataProperties.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Geofence+CoreDataProperties.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/Geofence+CoreDataProperties.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/CoreDataGenerated/SilentCircle/SilentCircle+CoreDataModel.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle+CoreDataModel.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle+CoreDataModel.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/SilentCircle+CoreDataModel.o"
+  },
+  "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}

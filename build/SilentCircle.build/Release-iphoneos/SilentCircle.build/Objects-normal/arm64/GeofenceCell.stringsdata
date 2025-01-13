@@ -1,0 +1,24 @@
+{
+  "source": "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/GeofenceCell.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 39
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm radius",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 31
+        }
+      }
+    ]
+  },
+  "version": 1
+}

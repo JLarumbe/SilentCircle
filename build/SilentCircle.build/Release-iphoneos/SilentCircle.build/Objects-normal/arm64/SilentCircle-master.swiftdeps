@@ -1,0 +1,35 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "e1310cfba726c9b7a7afaa3fa2a7ff1f9ab5e6ba2e84c489cdd8d78c65805695"
+build_start_time: [1736703338, 425997000]
+build_end_time: [1736703344, 596496000]
+inputs:
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ContentView.swift": [1736455796, 673976726]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Extensions/CLLocationCoordinate2D+Equatable.swift": [1736397957, 38590223]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/GeofenceFetchManager.swift": [1736397957, 38956057]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/KeyboardManager.swift": [1736397957, 39028766]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/LocationManager.swift": [1736454496, 712680165]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Managers/NotificationManager.swift": [1736397957, 40240311]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Models/CoordinateWrapper.swift": [1736397957, 40343144]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Persistence.swift": [1736400024, 106115184]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/SilentCircleApp.swift": [1736397957, 40969729]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/AddGeofenceView.swift": [1736397957, 41153938]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/Components/StatusGroup.swift": [1736397957, 41281064]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/Components/StatusIndicator.swift": [1736451445, 187329650]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/GeofenceCell.swift": [1736455211, 624428780]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/GeofenceListView.swift": [1736546269, 471729352]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/LocationSearchView.swift": [1736451334, 767517687]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/SharedViews.swift": [1736451486, 849565926]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/StatusBarView.swift": [1736451354, 282781925]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/UpdateGeofenceView.swift": [1736452755, 817304317]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/AddGeofenceViewModel.swift": [1736453594, 489985038]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/GeofenceListViewModel.swift": [1736453594, 490745374]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/LocationSearchViewModel.swift": [1736398363, 520685690]
+  "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/ViewsModel/UpdateGeofenceViewModel.swift": [1736397957, 42371691]
+  ? "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/CoreDataGenerated/SilentCircle/Geofence+CoreDataClass.swift"
+  : [1736703337, 987589434]
+  ? "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/CoreDataGenerated/SilentCircle/Geofence+CoreDataProperties.swift"
+  : [1736703337, 987926725]
+  ? "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/CoreDataGenerated/SilentCircle/SilentCircle+CoreDataModel.swift"
+  : [1736703337, 986150432]
+  ? "/Users/jorgelarumbe/Development/SilentCircle/build/SilentCircle.build/Release-iphoneos/SilentCircle.build/DerivedSources/GeneratedAssetSymbols.swift"
+  : [1736703338, 374254015]

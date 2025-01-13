@@ -81,8 +81,29 @@ class AddGeofenceViewModel: ObservableObject {
         newGeofence.radius = radius
         newGeofence.isActive = isActive
         
+        print("🆕 DEBUG: Creating new geofence")
+        print("📍 DEBUG: Location: (\(latitude), \(longitude))")
+        print("📏 DEBUG: Radius: \(radius)m")
+        
+        // Save the context first
         PersistenceController.shared.saveIfNeeded()
         await geofenceListViewModel.fetchGeofences()
+        
+        // Get the location manager from the list view model
+        if let locationManager = geofenceListViewModel.locationManager {
+            print("🎯 DEBUG: Starting geofence monitoring")
+            locationManager.startMonitoringGeofence(newGeofence)
+            
+            // Force an immediate location check
+            print("🔄 DEBUG: Requesting immediate location check")
+            if let location = locationManager.userLocation {
+                print("📍 DEBUG: Using current location for immediate check")
+                await locationManager.handleLocationUpdate(location, source: .standard)
+            } else {
+                print("📍 DEBUG: Requesting new location for check")
+                locationManager.requestLocation()
+            }
+        }
     }
     
     deinit {

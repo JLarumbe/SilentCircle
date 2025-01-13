@@ -9,138 +9,28 @@ import MapKit
 import CoreData
 import Combine
 
-struct ControlPanelHeaderView: View {
-    let title: String
+@MainActor
+class MapCameraState: ObservableObject {
+    @Published var camera: MapCamera
     
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(.title3.weight(.semibold))
-            Spacer()
-        }
+    init(coordinate: CLLocationCoordinate2D, radius: Double) {
+        self.camera = MapCamera(
+            centerCoordinate: coordinate,
+            distance: max(radius * 2, 250),
+            heading: 0,
+            pitch: 0
+        )
     }
-}
-
-struct LocationNameFieldView: View {
-    @Binding var name: String
-    @FocusState.Binding var isFocused: Bool
     
-    var body: some View {
-        TextField("Location Nickname", text: $name)
-            .textFieldStyle(.plain)
-            .padding()
-            .background(Color(.systemGray6))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .focused($isFocused)
-    }
-}
-
-struct LocationInfoView: View {
-    @ObservedObject var viewModel: AddGeofenceViewModel
-    @Binding var showingLocationSearch: Bool
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Location Icon with Background
-            ZStack {
-                Circle()
-                    .fill(Color.blue.opacity(0.15))
-                    .frame(width: 48, height: 48)
-                Image(systemName: "location.circle.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .font(.system(size: 28))
-                    .foregroundStyle(.blue)
-            }
-            
-            // Location Text
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Location")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(viewModel.latitude == 0 ? "Move map to set location" : "Location selected")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-            
-            Button(action: { 
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), 
-                                           to: nil, 
-                                           from: nil, 
-                                           for: nil)
-                showingLocationSearch = true
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15, weight: .medium))
-                    Text("Search")
-                        .font(.callout.weight(.medium))
-                }
-                .foregroundStyle(.white)
-                .frame(width: 96, height: 34)
-                .background(
-                    Capsule()
-                        .fill(Color.blue)
-                        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                )
-            }
+    func update(coordinate: CLLocationCoordinate2D? = nil, radius: Double) {
+        withAnimation {
+            camera = MapCamera(
+                centerCoordinate: coordinate ?? camera.centerCoordinate,
+                distance: max(radius * 2, 250),
+                heading: camera.heading,
+                pitch: camera.pitch
+            )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-struct RadiusControlView: View {
-    @Binding var radius: Double
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Radius")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(Int(radius))m")
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            
-            HStack(spacing: 12) {
-                Image(systemName: "circle.dotted")
-                    .foregroundStyle(.blue)
-                Slider(value: $radius, in: 10...500, step: 10)
-                    .tint(.blue)
-                Image(systemName: "circle")
-                    .foregroundStyle(.blue)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-struct CreateButtonView: View {
-    let isValidGeofence: Bool
-    let onCreate: () -> Void
-    
-    var body: some View {
-        Button(action: onCreate) {
-            Text("Create Silent Circle")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(isValidGeofence ? Color.blue : Color.gray.opacity(0.5))
-                )
-        }
-        .disabled(!isValidGeofence)
-        .padding(.top, 8)
     }
 }
 
@@ -149,53 +39,159 @@ struct AddGeofenceView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var locationManager: LocationManager
     @StateObject private var viewModel: AddGeofenceViewModel
+    @State private var mapPosition: MapCameraPosition
     @State private var showingLocationSearch = false
-    @State private var cardOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
-    @State private var is3DEnabled = false
-    @State private var mapPosition: MapCameraPosition = .region(MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
-        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-    ))
-    @State private var currentCoordinate: CLLocationCoordinate2D
+    @State private var currentStep = 0
     @State private var keyboardCancellable: AnyCancellable?
+    @State private var viewID = UUID()
+    @State private var isSettingLocation = false
     
-    private var keyboardPublisher: AnyPublisher<CGFloat, Never> {
-        Publishers.Merge(
-            NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
-                .map { notification -> CGFloat in
-                    (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
-                },
-            NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
-                .map { _ in CGFloat(0) }
-        ).eraseToAnyPublisher()
-    }
+    private let steps = ["Name", "Location", "Radius"]
     
     init(geofenceListViewModel: GeofenceListViewModel, viewContext: NSManagedObjectContext) {
+        print("🏗️ DEBUG: AddGeofenceView init")
         _viewModel = StateObject(wrappedValue: AddGeofenceViewModel(
             geofenceListViewModel: geofenceListViewModel,
             viewContext: viewContext
         ))
-        _currentCoordinate = State(initialValue: CLLocationCoordinate2D(
-            latitude: 37.3346,
-            longitude: -122.0090
-        ))
+        _mapPosition = State(initialValue: .camera(MapCamera(
+            centerCoordinate: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090),
+            distance: 250,
+            heading: 0,
+            pitch: 0
+        )))
+    }
+    
+    var body: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                // Progress Header
+                ProgressHeader(currentStep: currentStep, totalSteps: steps.count)
+                    .padding(.top, 8)
+                
+                // Step Title
+                Text(steps[currentStep])
+                    .font(.title2.weight(.bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                
+                // Main Content
+                Group {
+                    switch currentStep {
+                    case 0:
+                        NameStepView(
+                            name: $viewModel.name,
+                            isFocused: $isFocused
+                        )
+                    case 1:
+                        LocationStepView(
+                            viewModel: viewModel,
+                            mapPosition: $mapPosition,
+                            showingLocationSearch: $showingLocationSearch,
+                            onLocationRequest: requestLocation
+                        )
+                    case 2:
+                        RadiusStepView(
+                            viewModel: viewModel,
+                            mapPosition: $mapPosition
+                        )
+                    default:
+                        EmptyView()
+                    }
+                }
+                
+                // Navigation Buttons
+                NavigationButtons(
+                    currentStep: $currentStep,
+                    totalSteps: steps.count,
+                    isStepValid: isCurrentStepValid,
+                    onFinish: {
+                        Task {
+                            await viewModel.createGeofence()
+                            dismiss()
+                        }
+                    }
+                )
+                .padding()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.purple)
+                    }
+                }
+            }
+            .sheet(isPresented: $showingLocationSearch) {
+                LocationSearchView(onLocationSelected: { name, coordinate in
+                    mapPosition = .camera(MapCamera(
+                        centerCoordinate: coordinate,
+                        distance: max(viewModel.radius * 2, 250),
+                        heading: 0,
+                        pitch: 0
+                    ))
+                    viewModel.updateLocation(
+                        latitude: coordinate.latitude,
+                        longitude: coordinate.longitude
+                    )
+                    showingLocationSearch = false
+                })
+            }
+        }
+        .background(Color(.systemBackground))
+        .onAppear {
+            print("📱 DEBUG: AddGeofenceView appeared - ID: \(viewID)")
+        }
+        .onDisappear {
+            print("🚫 DEBUG: AddGeofenceView disappeared - ID: \(viewID)")
+        }
+        .onChange(of: locationManager.monitoringStatus) { oldValue, newValue in
+            print("�� DEBUG: AddGeofenceView - Monitoring status changed")
+            print("  - View ID: \(viewID)")
+            print("  - Old value: \(oldValue)")
+            print("  - New value: \(newValue)")
+            print("  - Current step: \(currentStep)")
+            print("  - Is setting location: \(isSettingLocation)")
+        }
+    }
+    
+    private var isCurrentStepValid: Bool {
+        switch currentStep {
+        case 0: return !viewModel.name.isEmpty
+        case 1: return viewModel.latitude != 0 && viewModel.longitude != 0
+        case 2: return true
+        default: return false
+        }
     }
     
     private func requestLocation() {
+        print("\n📍 DEBUG: AddGeofenceView - Requesting location")
+        print("  - View ID: \(viewID)")
+        print("  - Current step: \(currentStep)")
+        
+        isSettingLocation = true
+        
         Task {
-            print("📍 Requesting current location")
+            // Request a single location update
             locationManager.requestLocation()
             
-            // Wait for location update with timeout
-            for _ in 0..<10 {  // Try for 5 seconds
+            // Wait for location with timeout
+            for attempt in 0..<10 {
+                print("  - Location attempt: \(attempt + 1)")
                 if let location = locationManager.userLocation {
-                    print("✅ Got location: \(location.coordinate)")
                     await MainActor.run {
+                        print("  - Location received: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+                        // Update the map camera and view model with the new location
+                        // Use a smaller initial radius for a more zoomed in view
                         mapPosition = .camera(MapCamera(
                             centerCoordinate: location.coordinate,
-                            distance: 1000,
+                            distance: max(viewModel.radius * 2, 250),
                             heading: 0,
                             pitch: 0
                         ))
@@ -206,127 +202,257 @@ struct AddGeofenceView: View {
                     }
                     break
                 }
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                try? await Task.sleep(nanoseconds: 500_000_000) // 500ms delay
             }
+            
+            // Small delay to ensure location processing is complete
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s delay
+            isSettingLocation = false
+            print("  - Location request completed")
         }
     }
+}
+
+// MARK: - Step Views
+
+private struct NameStepView: View {
+    @Binding var name: String
+    @FocusState.Binding var isFocused: Bool
     
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                MapContentView(
-                    mapPosition: $mapPosition,
-                    pinCoordinate: viewModel.pinCoordinate,
-                    radius: viewModel.radius,
-                    onTapLocation: { coordinate in
-                        viewModel.handleMapTap(coordinate: coordinate)
-                    },
-                    onLocationRequest: requestLocation
+        VStack(spacing: 24) {
+            Text("What would you like to call this Silent Circle?")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            TextField("e.g. Home, Work, Library", text: $name)
+                .textFieldStyle(.plain)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemBackground))
                 )
-                .frame(height: geometry.size.height * 0.45)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.systemGray4), lineWidth: 1)
+                )
+                .padding(.horizontal)
+                .focused($isFocused)
+        }
+        .padding(.vertical)
+    }
+}
+
+private struct LocationStepView: View {
+    @ObservedObject var viewModel: AddGeofenceViewModel
+    @Binding var mapPosition: MapCameraPosition
+    @Binding var showingLocationSearch: Bool
+    let onLocationRequest: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Button(action: { showingLocationSearch = true }) {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.purple)
+                    Text("Search for a location")
+                        .foregroundStyle(.purple)
+                    Spacer()
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemBackground))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.purple, lineWidth: 1)
+                )
+            }
+            .padding(.horizontal)
+            
+            MapContentView(
+                mapPosition: $mapPosition,
+                pinCoordinate: viewModel.pinCoordinate,
+                radius: viewModel.radius,
+                onTapLocation: { coordinate in
+                    viewModel.handleMapTap(coordinate: coordinate)
+                    mapPosition = .camera(MapCamera(
+                        centerCoordinate: coordinate,
+                        distance: max(viewModel.radius * 2, 250),
+                        heading: 0,
+                        pitch: 0
+                    ))
+                },
+                onLocationRequest: onLocationRequest
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+            .padding(.horizontal)
+        }
+    }
+}
+
+private struct RadiusStepView: View {
+    @ObservedObject var viewModel: AddGeofenceViewModel
+    @Binding var mapPosition: MapCameraPosition
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            MapContentView(
+                mapPosition: $mapPosition,
+                pinCoordinate: viewModel.pinCoordinate,
+                radius: viewModel.radius,
+                onTapLocation: { _ in },
+                onLocationRequest: { },
+                showLocationButton: false
+            )
+            .frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
+            .padding(.horizontal)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Circle Radius")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(Int(viewModel.radius))m")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color(.systemGray6))
+                        )
+                }
                 
-                // Control Panel - exactly 50% height
-                VStack(spacing: 20) {
-                    ControlPanelHeaderView(title: "New Silent Circle")
-                    
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {
-                            LocationNameFieldView(name: $viewModel.name, isFocused: $isFocused)
-                            LocationInfoView(viewModel: viewModel, showingLocationSearch: $showingLocationSearch)
-                            RadiusControlView(radius: $viewModel.radius)
-                            CreateButtonView(
-                                isValidGeofence: viewModel.isValidGeofence,
-                                onCreate: {
-                                    Task {
-                                        await viewModel.createGeofence()
-                                        dismiss()
-                                    }
-                                }
-                            )
+                HStack {
+                    Image(systemName: "circle.dotted")
+                        .foregroundStyle(.purple)
+                    Slider(value: $viewModel.radius, in: 10...500, step: 10) { editing in
+                        if !editing {
+                            mapPosition = .camera(MapCamera(
+                                centerCoordinate: viewModel.pinCoordinate,
+                                distance: max(viewModel.radius * 2, 250),
+                                heading: 0,
+                                pitch: 0
+                            ))
                         }
                     }
+                    .tint(.purple)
+                    Image(systemName: "circle")
+                        .foregroundStyle(.purple)
                 }
-                .padding(20)
-                .frame(height: geometry.size.height * 0.5)
-                .background(Color(.systemBackground))
-                .offset(y: isFocused ? -keyboardHeight : 0)
-                .animation(.easeOut(duration: 0.3), value: isFocused)
-                .animation(.easeOut(duration: 0.3), value: keyboardHeight)
-                .transaction { transaction in
-                    transaction.animation = .none
-                }
-                .onChange(of: isFocused || keyboardHeight > 0) { oldValue, newValue in
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        cardOffset = newValue ? -keyboardHeight : 0
-                    }
-                }
+                
+                Text("This circle will cover approximately a \(radiusDescription) area")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-        }
-        .ignoresSafeArea()
-        .navigationBarHidden(true)
-        .overlay(alignment: .topLeading) {
-            Button(action: { dismiss() }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text("Back")
-                        .font(.system(size: 17, weight: .regular))
-                }
-                .foregroundStyle(.blue)
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .opacity(isFocused ? 0 : 1)
-                .animation(.easeInOut, value: isFocused)
-            }
-        }
-        .onAppear {
-            // Set up keyboard observation
-            keyboardCancellable = keyboardPublisher.sink { height in
-                withAnimation(.easeOut(duration: 0.3)) {
-                    keyboardHeight = height
-                }
-            }
-        }
-        .onDisappear {
-            // Clean up keyboard observation
-            keyboardCancellable?.cancel()
-        }
-        .sheet(isPresented: $showingLocationSearch) {
-            LocationSearchView(onLocationSelected: { name, coordinate in
-                mapPosition = .camera(MapCamera(
-                    centerCoordinate: coordinate,
-                    distance: 1000,
-                    heading: 0,
-                    pitch: 0
-                ))
-                viewModel.updateLocation(
-                    latitude: coordinate.latitude,
-                    longitude: coordinate.longitude
-                )
-                showingLocationSearch = false
-            })
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
+            .padding(.horizontal)
         }
     }
     
-    private func convertToCoordinate(_ point: CGPoint, in geometry: GeometryProxy) -> CLLocationCoordinate2D? {
-        guard let region = viewModel.getCurrentRegion() else { return nil }
-        
-        let mapFrame = geometry.frame(in: .local)
-        
-        // Convert point to normalized coordinates (0-1)
-        let normalizedPoint = CGPoint(
-            x: point.x / mapFrame.width,
-            y: point.y / mapFrame.height
-        )
-        
-        // Convert to map coordinates
-        let span = region.span
-        let center = region.center
-        
-        let latitude = center.latitude + (0.5 - normalizedPoint.y) * span.latitudeDelta
-        let longitude = center.longitude + (normalizedPoint.x - 0.5) * span.longitudeDelta
-        
-        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    private var radiusDescription: String {
+        if viewModel.radius < 50 {
+            return "small"
+        } else if viewModel.radius < 200 {
+            return "medium"
+        } else {
+            return "large"
+        }
+    }
+}
+
+// MARK: - Supporting Views
+
+private struct ProgressHeader: View {
+    let currentStep: Int
+    let totalSteps: Int
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<totalSteps, id: \.self) { index in
+                Capsule()
+                    .fill(index <= currentStep ? Color.purple : Color(.systemGray4))
+                    .frame(height: 4)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+}
+
+private struct NavigationButtons: View {
+    @Binding var currentStep: Int
+    let totalSteps: Int
+    let isStepValid: Bool
+    let onFinish: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            if currentStep > 0 {
+                Button(action: { withAnimation { currentStep -= 1 } }) {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.purple)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.purple, lineWidth: 1)
+                    )
+                }
+            }
+            
+            Button(action: {
+                withAnimation {
+                    if currentStep < totalSteps - 1 {
+                        currentStep += 1
+                    } else {
+                        onFinish()
+                    }
+                }
+            }) {
+                Text(currentStep < totalSteps - 1 ? "Next" : "Create Circle")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(isStepValid ? Color.purple : Color.gray.opacity(0.5))
+                    )
+            }
+            .disabled(!isStepValid)
+        }
     }
 }
 

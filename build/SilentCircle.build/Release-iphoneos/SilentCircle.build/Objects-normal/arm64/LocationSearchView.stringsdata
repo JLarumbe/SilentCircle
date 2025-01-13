@@ -1,0 +1,56 @@
+{
+  "source": "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/LocationSearchView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Search for a location",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 78
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search Location",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 91
+        }
+      },
+      {
+        "comment": "",
+        "key": "No search results found",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@, %@",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 72
+        }
+      },
+      {
+        "comment": "",
+        "key": "Double tap to select this location",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 95
+        }
+      }
+    ]
+  },
+  "version": 1
+}

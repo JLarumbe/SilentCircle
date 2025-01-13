@@ -1,0 +1,24 @@
+{
+  "source": "/Users/jorgelarumbe/Development/SilentCircle/SilentCircle/Views/GeofenceListView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Silent Circles",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 21
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 177
+        }
+      }
+    ]
+  },
+  "version": 1
+}
