@@ -326,6 +326,17 @@ private struct CurrentStatusCard: View {
                     .fill(Color(.secondarySystemGroupedBackground))
             )
         }
+        .onAppear {
+            logCurrentGeofence()
+        }
+    }
+    
+    private func logCurrentGeofence() {
+        if let currentGeofence = locationManager.currentGeofence {
+            print("🔄 DEBUG: Current active geofence: \(currentGeofence.name ?? "Unknown")")
+        } else {
+            print("ℹ️ DEBUG: No active geofence")
+        }
     }
 }
 

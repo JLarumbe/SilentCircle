@@ -19,6 +19,7 @@ struct UpdateGeofenceView: View {
     @FocusState private var isFocused: Bool
     @State private var currentStep = 0
     @State private var mapPosition: MapCameraPosition
+    @State private var lastCameraDistance: Double = 250  // Store last camera distance
     private let geofence: Geofence
     
     private let steps = ["Name", "Location", "Radius", "Settings"]
@@ -42,18 +43,62 @@ struct UpdateGeofenceView: View {
         )))
     }
     
+    // Helper function to update map camera while preserving zoom
+    private func updateMapCamera(coordinate: CLLocationCoordinate2D) {
+        if let camera = try? mapPosition.camera {
+            mapPosition = .camera(MapCamera(
+                centerCoordinate: coordinate,
+                distance: camera.distance,
+                heading: camera.heading,
+                pitch: camera.pitch
+            ))
+        }
+    }
+    
     var body: some View {
+        VStack(spacing: 0) {
             VStack(spacing: 0) {
-            // Progress Header
-            ProgressHeader(currentStep: currentStep, totalSteps: steps.count)
+                // Progress Header
+                HStack(spacing: 4) {
+                    ForEach(0..<steps.count, id: \.self) { index in
+                        Capsule()
+                            .fill(index <= currentStep ? Color.purple : Color(.systemGray4))
+                            .frame(height: 4)
+                    }
+                }
+                .padding(.horizontal)
                 .padding(.top, 4)
-            
-            // Step Title
-            Text(steps[currentStep])
-                .font(.title2.weight(.bold))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Tab Navigation
+                HStack(spacing: 0) {
+                    ForEach(0..<steps.count, id: \.self) { index in
+                        Button(action: {
+                            withAnimation {
+                                currentStep = index
+                            }
+                        }) {
+                            VStack(spacing: 8) {
+                                Text(steps[index])
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(currentStep == index ? .purple : .secondary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                
+                                // Active Indicator
+                                Capsule()
+                                    .fill(currentStep == index ? Color.purple : Color.clear)
+                                    .frame(height: 3)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
                 .padding(.horizontal)
                 .padding(.vertical, 8)
+            }
+            .background(Color(.systemBackground))
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
             
             // Main Content
             Group {
@@ -66,10 +111,10 @@ struct UpdateGeofenceView: View {
                 case 1:
                     LocationStepView(
                         viewModel: viewModel,
-                    mapPosition: $mapPosition,
+                        mapPosition: $mapPosition,
                         showingLocationSearch: $showingLocationSearch,
-                    onLocationRequest: requestLocation
-                )
+                        onLocationRequest: requestLocation
+                    )
                 case 2:
                     RadiusStepView(
                         viewModel: viewModel,
@@ -84,23 +129,33 @@ struct UpdateGeofenceView: View {
                 }
             }
             .transition(.opacity.combined(with: .move(edge: .trailing)))
-                                
-                                Spacer()
-                                
-            // Navigation Buttons
-            NavigationButtons(
-                currentStep: $currentStep,
-                totalSteps: steps.count,
-                isStepValid: isCurrentStepValid,
-                onFinish: updateGeofence
-            )
-                            .padding()
+            .padding(.top, 16)
+            
+            Spacer()
+            
+            // Save Button
+            Button(action: updateGeofence) {
+                HStack(spacing: 8) {
+                    Text("Save Changes")
+                        .font(.headline)
+                    Image(systemName: "checkmark.circle.fill")
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 54)
+                .foregroundStyle(.white)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(isCurrentStepValid ? Color.purple : Color.gray.opacity(0.5))
+                )
+            }
+            .disabled(!isCurrentStepValid)
+            .padding()
         }
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-            Button(action: { dismiss() }) {
+                Button(action: { dismiss() }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
                         .foregroundStyle(.purple)
@@ -235,6 +290,18 @@ private struct LocationStepView: View {
     @Binding var showingLocationSearch: Bool
     let onLocationRequest: () -> Void
     
+    private func handleMapTap(coordinate: CLLocationCoordinate2D) {
+        viewModel.handleMapTap(coordinate: coordinate)
+        if let camera = try? mapPosition.camera {
+            mapPosition = .camera(MapCamera(
+                centerCoordinate: coordinate,
+                distance: camera.distance,
+                heading: camera.heading,
+                pitch: camera.pitch
+            ))
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 16) {
             Button(action: { showingLocationSearch = true }) {
@@ -256,20 +323,13 @@ private struct LocationStepView: View {
                 )
             }
             .padding(.horizontal)
+            .padding(.top, 8)
             
             MapContentView(
                 mapPosition: $mapPosition,
                 pinCoordinate: viewModel.pinCoordinate,
                 radius: viewModel.radius,
-                onTapLocation: { coordinate in
-                    viewModel.handleMapTap(coordinate: coordinate)
-                    mapPosition = .camera(MapCamera(
-                        centerCoordinate: coordinate,
-                        distance: max(viewModel.radius * 2, 250),
-                        heading: 0,
-                        pitch: 0
-                    ))
-                },
+                onTapLocation: handleMapTap,
                 onLocationRequest: onLocationRequest
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -286,6 +346,16 @@ private struct LocationStepView: View {
 private struct RadiusStepView: View {
     @ObservedObject var viewModel: UpdateGeofenceViewModel
     @Binding var mapPosition: MapCameraPosition
+    
+    private func updateMapCamera() {
+        // Use a fixed distance based on radius
+        mapPosition = .camera(MapCamera(
+            centerCoordinate: viewModel.pinCoordinate,
+            distance: max(viewModel.radius * 2, 250),
+            heading: 0,
+            pitch: 0
+        ))
+    }
     
     var body: some View {
         VStack(spacing: 24) {
@@ -305,6 +375,9 @@ private struct RadiusStepView: View {
             )
             .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
             .padding(.horizontal)
+            .padding(.top, 8)
+            .gesture(MagnificationGesture().onChanged { _ in }) // Disable zooming
+            .gesture(DragGesture().onChanged { _ in }) // Disable panning
             
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -327,12 +400,7 @@ private struct RadiusStepView: View {
                         .foregroundStyle(.purple)
                     Slider(value: $viewModel.radius, in: 10...500, step: 10) { editing in
                         if !editing {
-                            mapPosition = .camera(MapCamera(
-                                centerCoordinate: viewModel.pinCoordinate,
-                                distance: max(viewModel.radius * 2, 250),
-                                heading: 0,
-                                pitch: 0
-                            ))
+                            updateMapCamera()
                         }
                     }
                     .tint(.purple)

@@ -385,35 +385,51 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func stopMonitoringGeofence(_ geofence: Geofence) {
-        print("\n🛑 DEBUG: Stopping geofence monitoring")
-        print("📍 DEBUG: Geofence: '\(geofence.name ?? "Unknown")'")
+        print("🛑 DEBUG: Stopping monitoring for geofence: \(geofence.name ?? "Unknown")")
         
-        // Find and remove the region
+        // Find and stop monitoring the region
         if let region = state.monitoredRegions.first(where: { $0.identifier == geofence.name }) {
             manager.stopMonitoring(for: region)
             state.monitoredRegions.remove(region)
-            print("✅ DEBUG: Successfully stopped monitoring geofence")
-            print("📊 DEBUG: Total monitored regions: \(state.monitoredRegions.count)")
+            print("✅ DEBUG: Successfully removed region from monitoring")
             
-            // If this was the current geofence, clear it
+            // Clear current geofence if it's the one we're stopping
             if currentGeofence?.id == geofence.id {
-                updateCurrentGeofence(nil)
+                print("🔄 DEBUG: Clearing current geofence as it's being deactivated")
+                currentGeofence = nil
+                objectWillChange.send()
             }
-            
-            // Update monitoring state
-            updateLocationMonitoring()
-        } else {
-            print("ℹ️ DEBUG: Geofence was not being monitored")
         }
+        
+        updateMonitoringStatus()
     }
     
-    // Add this method to handle geofence updates
     func updateGeofence(_ geofence: Geofence) {
-        // Stop monitoring the old geofence
+        print("🔄 DEBUG: Updating geofence: \(geofence.name ?? "Unknown")")
+        
+        // Stop monitoring old region if it exists
         stopMonitoringGeofence(geofence)
         
-        // Start monitoring the updated geofence
-        startMonitoringGeofence(geofence)
+        // Create and start monitoring new region
+        guard let region = createRegion(for: geofence) else {
+            print("⚠️ DEBUG: Failed to create region for geofence")
+            return
+        }
+        
+        manager.startMonitoring(for: region)
+        state.monitoredRegions.insert(region)
+        
+        // Update monitoring status
+        updateMonitoringStatus()
+        
+        // Check if we need to update current geofence
+        if let location = userLocation {
+            Task {
+                await handleLocationUpdate(location, source: .standard)
+            }
+        }
+        
+        print("✅ DEBUG: Successfully updated geofence monitoring")
     }
     
     // MARK: - Helper Methods

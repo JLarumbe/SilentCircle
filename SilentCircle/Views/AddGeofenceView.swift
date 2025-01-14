@@ -308,6 +308,16 @@ private struct RadiusStepView: View {
     @ObservedObject var viewModel: AddGeofenceViewModel
     @Binding var mapPosition: MapCameraPosition
     
+    private func updateMapCamera() {
+        // Use a fixed distance based on radius
+        mapPosition = .camera(MapCamera(
+            centerCoordinate: viewModel.pinCoordinate,
+            distance: max(viewModel.radius * 2, 250),
+            heading: 0,
+            pitch: 0
+        ))
+    }
+    
     var body: some View {
         VStack(spacing: 24) {
             MapContentView(
@@ -327,6 +337,8 @@ private struct RadiusStepView: View {
             .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
             .padding(.horizontal)
             .padding(.top, 8)
+            .gesture(MagnificationGesture().onChanged { _ in }) // Disable zooming
+            .gesture(DragGesture().onChanged { _ in }) // Disable panning
             
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -349,12 +361,7 @@ private struct RadiusStepView: View {
                         .foregroundStyle(.purple)
                     Slider(value: $viewModel.radius, in: 10...500, step: 10) { editing in
                         if !editing {
-                            mapPosition = .camera(MapCamera(
-                                centerCoordinate: viewModel.pinCoordinate,
-                                distance: max(viewModel.radius * 2, 250),
-                                heading: 0,
-                                pitch: 0
-                            ))
+                            updateMapCamera()
                         }
                     }
                     .tint(.purple)
