@@ -108,6 +108,7 @@ struct GeofenceListView: View {
     private let id = UUID()
     @ObservedObject var viewModel: GeofenceListViewModel
     @State private var showingAddGeofence = false
+    @State private var showingSettings = false
     
     init(viewModel: GeofenceListViewModel) {
         self.viewModel = viewModel
@@ -140,6 +141,9 @@ struct GeofenceListView: View {
                 }
                 .presentationDragIndicator(.visible)
             }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
             .onChange(of: locationManager.monitoringStatus) { oldValue, newValue in
                 print("🔄 DEBUG: GeofenceListView - Monitoring status changed")
                 print("  - Old value: \(oldValue)")
@@ -149,6 +153,15 @@ struct GeofenceListView: View {
                 Task {
                     await viewModel.fetchGeofences()
                     await stateController.processStateUpdate()
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gear")
+                            .font(.title3)
+                            .foregroundStyle(.purple)
+                    }
                 }
             }
         }
