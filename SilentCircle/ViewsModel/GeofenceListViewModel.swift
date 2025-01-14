@@ -146,6 +146,27 @@ class GeofenceListViewModel: ObservableObject {
         }
     }
     
+    func deleteGeofence(_ geofence: Geofence, locationManager: LocationManager) {
+        print("\n🗑️ DEBUG: Starting deleteGeofence")
+        print("📍 DEBUG: Geofence: \(geofence.name ?? "Unnamed")")
+        print("📍 DEBUG: Geofence ID: \(geofence.id?.uuidString ?? "nil")")
+        
+        Task {
+            print("✅ DEBUG: Stopping monitoring for geofence")
+            locationManager.stopMonitoringGeofence(geofence)
+            
+            print("✅ DEBUG: Deleting geofence from context")
+            viewContext.delete(geofence)
+            
+            print("✅ DEBUG: Saving context")
+            PersistenceController.shared.saveIfNeeded()
+            
+            print("✅ DEBUG: Fetching updated geofences")
+            await fetchGeofences()
+            print("✅ DEBUG: Delete operation complete\n")
+        }
+    }
+    
     func stopObserving() {
         #if DEBUG
         print("\n🛑 DEBUG: Stopping observation")

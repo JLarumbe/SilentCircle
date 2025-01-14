@@ -166,9 +166,26 @@ struct GeofenceListView: View {
 
 private struct GeofenceListContent: View {
     @ObservedObject var viewModel: GeofenceListViewModel
+    @EnvironmentObject private var locationManager: LocationManager
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.managedObjectContext) private var viewContext
     @State private var showAddSheet = false
+    
+    private var sortedGeofences: [Geofence] {
+        guard let userLocation = locationManager.userLocation else {
+            return viewModel.geofences
+        }
+        
+        return viewModel.geofences.sorted { geofence1, geofence2 in
+            let location1 = CLLocation(latitude: geofence1.latitude, longitude: geofence1.longitude)
+            let location2 = CLLocation(latitude: geofence2.latitude, longitude: geofence2.longitude)
+            
+            let distance1 = location1.distance(from: userLocation)
+            let distance2 = location2.distance(from: userLocation)
+            
+            return distance1 < distance2
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -182,10 +199,10 @@ private struct GeofenceListContent: View {
                     .padding(.horizontal)
                 
                 // Main Content
-                if viewModel.geofences.isEmpty {
+                if sortedGeofences.isEmpty {
                     ListEmptyStateView(showAddSheet: $showAddSheet)
                 } else {
-                    GeofenceListItems(viewModel: viewModel)
+                    GeofenceListItems(viewModel: viewModel, geofences: sortedGeofences)
                 }
             }
             .padding(.top, 8)
@@ -421,8 +438,11 @@ private struct ListEmptyStateView: View {
             Button(action: { showAddSheet = true }) {
                 Label("Add Circle", systemImage: "plus.circle.fill")
                     .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.purple)
+                    .cornerRadius(8)
             }
-            .buttonStyle(.borderedProminent)
             .padding(.top, 8)
         }
         .padding()
@@ -433,9 +453,10 @@ private struct ListEmptyStateView: View {
 
 private struct GeofenceListItems: View {
     @ObservedObject var viewModel: GeofenceListViewModel
+    let geofences: [Geofence]
     
     var body: some View {
-        GeofenceList(viewModel: viewModel)
+        GeofenceList(viewModel: viewModel, geofences: geofences)
             .background(Color(.systemGroupedBackground))
     }
 }
@@ -444,96 +465,105 @@ private struct GeofenceList: View {
     @ObservedObject var viewModel: GeofenceListViewModel
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var locationManager: LocationManager
+    let geofences: [Geofence]
+    @State private var selectedGeofence: Geofence?
+    @State private var showingDeleteAlert = false
+    @State private var geofenceToDelete: Geofence?
+    private let id = UUID()
+    
+    private var sortedGeofences: [Geofence] {
+        guard let userLocation = locationManager.userLocation else {
+            print("📍 DEBUG: No user location available, showing unsorted list")
+            return geofences
+        }
+        
+        return geofences.sorted { geofence1, geofence2 in
+            let location1 = CLLocation(latitude: geofence1.latitude, longitude: geofence1.longitude)
+            let location2 = CLLocation(latitude: geofence2.latitude, longitude: geofence2.longitude)
+            
+            let distance1 = location1.distance(from: userLocation)
+            let distance2 = location2.distance(from: userLocation)
+            
+            print("📏 DEBUG: Distance comparison - \(geofence1.name ?? "Unknown"): \(distance1)m vs \(geofence2.name ?? "Unknown"): \(distance2)m")
+            
+            return distance1 < distance2
+        }
+    }
     
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                ForEach(viewModel.geofences) { geofence in
-                    NavigationLink(destination: UpdateGeofenceView(
-                        geofenceListViewModel: viewModel,
-                        viewContext: viewContext,
-                        geofence: geofence
-                    )) {
-                        GeofenceCellView(
+                ForEach(sortedGeofences) { geofence in
+                    ZStack {
+                        GeofenceCell(
                             geofence: geofence,
                             isActive: locationManager.currentGeofence?.id == geofence.id,
-                            onDelete: { geofence in
-                                if let locationManager = viewModel.locationManager {
-                                    viewModel.deleteItems(at: [viewModel.geofences.firstIndex(of: geofence)!], locationManager: locationManager)
-                                }
+                            onTap: { geofence in
+                                print("👆 DEBUG: Tapped geofence: \(geofence.name ?? "Unnamed")")
+                                selectedGeofence = geofence
                             }
                         )
+                        // Make the entire cell tappable with proper hit target (44x44 minimum)
+                        .contentShape(Rectangle())
+                        .frame(minHeight: 44)
                     }
-                    .buttonStyle(.plain)
+                    .contextMenu {
+                        // Edit Button
+                        Button {
+                            selectedGeofence = geofence
+                        } label: {
+                            Label("Edit Circle", systemImage: "pencil")
+                        }
+                        
+                        // Delete Button
+                        Button(role: .destructive) {
+                            print("🗑️ DEBUG: Delete menu triggered for geofence: \(geofence.name ?? "Unnamed")")
+                            geofenceToDelete = geofence
+                            showingDeleteAlert = true
+                        } label: {
+                            Label("Delete Circle", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            print("🗑️ DEBUG: Swipe action triggered for geofence: \(geofence.name ?? "Unnamed")")
+                            geofenceToDelete = geofence
+                            showingDeleteAlert = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
         .background(Color(.systemGroupedBackground))
-    }
-}
-
-private struct GeofenceCellView: View {
-    @ObservedObject var geofence: Geofence
-    let isActive: Bool  // This indicates if user is currently inside the geofence
-    let onDelete: (Geofence) -> Void
-    @Environment(\.colorScheme) var colorScheme
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            // Current Location Indicator
-            Circle()
-                .fill(isActive ? .purple : Color(.systemGray4))
-                .frame(width: 8, height: 8)
-                .padding(.leading, 8)
-            
-            // Main Content
-            VStack(alignment: .leading, spacing: 6) {
-                Text(geofence.name ?? "Unnamed Circle")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                HStack(spacing: 12) {
-                    Label("\(Int(geofence.radius))m", systemImage: "ruler")
-                        .foregroundStyle(.purple)
-                    Label(geofence.isActive ? "Monitoring" : "Not Monitoring", systemImage: geofence.isActive ? "bell.fill" : "bell.slash")
-                        .foregroundStyle(geofence.isActive ? .purple : .secondary)
+        .navigationDestination(item: $selectedGeofence) { geofence in
+            UpdateGeofenceView(
+                geofenceListViewModel: viewModel,
+                viewContext: viewContext,
+                geofence: geofence
+            )
+        }
+        .alert("Delete Silent Circle?", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                geofenceToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let geofence = geofenceToDelete {
+                    print("🗑️ DEBUG: Confirming deletion for geofence: \(geofence.name ?? "Unnamed")")
+                    viewModel.deleteGeofence(geofence, locationManager: locationManager)
                 }
-                .font(.footnote.weight(.medium))
+                geofenceToDelete = nil
             }
-            
-            Spacer()
-            
-            // Navigation Indicator
-            Image(systemName: "chevron.right")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
-                .padding(.trailing, 4)
-        }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.03), radius: 8, y: 2)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color(.separator).opacity(0.2), lineWidth: 1)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 16))
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                onDelete(geofence)
-            } label: {
-                Label("Delete", systemImage: "trash")
+        } message: {
+            if let name = geofenceToDelete?.name {
+                Text("Are you sure you want to delete \"\(name)\"? This action cannot be undone.")
+            } else {
+                Text("Are you sure you want to delete this Silent Circle? This action cannot be undone.")
             }
         }
-        // Accessibility
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(geofence.name ?? "Unnamed Circle"), \(isActive ? "Currently Inside" : "Currently Outside"), \(geofence.isActive ? "Monitoring Enabled" : "Monitoring Disabled"), \(Int(geofence.radius)) meters radius")
-        .accessibilityHint("Double tap to edit this Silent Circle")
     }
 }
 

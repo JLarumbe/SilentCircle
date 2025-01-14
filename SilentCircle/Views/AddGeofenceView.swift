@@ -69,14 +69,14 @@ struct AddGeofenceView: View {
             VStack(spacing: 0) {
                 // Progress Header
                 ProgressHeader(currentStep: currentStep, totalSteps: steps.count)
-                    .padding(.top, 8)
+                    .padding(.top, 4)
                 
                 // Step Title
                 Text(steps[currentStep])
                     .font(.title2.weight(.bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
-                    .padding(.top, 8)
+                    .padding(.vertical, 8)
                 
                 // Main Content
                 Group {
@@ -102,6 +102,9 @@ struct AddGeofenceView: View {
                         EmptyView()
                     }
                 }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                
+                Spacer()
                 
                 // Navigation Buttons
                 NavigationButtons(
@@ -220,12 +223,13 @@ private struct NameStepView: View {
     @FocusState.Binding var isFocused: Bool
     
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
             Text("What would you like to call this Silent Circle?")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+                .padding(.top, 8)
             
             TextField("e.g. Home, Work, Library", text: $name)
                 .textFieldStyle(.plain)
@@ -241,7 +245,7 @@ private struct NameStepView: View {
                 .padding(.horizontal)
                 .focused($isFocused)
         }
-        .padding(.vertical)
+        .padding(.vertical, 8)
     }
 }
 
@@ -272,6 +276,7 @@ private struct LocationStepView: View {
                 )
             }
             .padding(.horizontal)
+            .padding(.top, 8)
             
             MapContentView(
                 mapPosition: $mapPosition,
@@ -321,6 +326,7 @@ private struct RadiusStepView: View {
             )
             .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
             .padding(.horizontal)
+            .padding(.top, 8)
             
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
