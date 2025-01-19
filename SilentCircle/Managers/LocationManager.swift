@@ -637,10 +637,15 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     private func handleGeofenceNotification(type: GeofenceNotificationType, geofence: Geofence) {
         print("\n🔔 DEBUG: Processing geofence notification")
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled", defaultValue: false)
+        print("📱 DEBUG: Notifications setting in UserDefaults: \(notificationsEnabled)")
         print("📱 DEBUG: Notification state: \(state.shouldSendNotifications ? "Enabled" : "Disabled")")
         
-        guard state.shouldSendNotifications else {
+        // Check both UserDefaults and internal state
+        guard notificationsEnabled && state.shouldSendNotifications else {
             print("🔕 DEBUG: Notifications disabled, skipping")
+            print("  - UserDefaults setting: \(notificationsEnabled)")
+            print("  - Internal state: \(state.shouldSendNotifications)")
             return
         }
         
@@ -726,10 +731,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
     }
     
-    func handleGeofenceEvent(_ region: CLRegion, didEnter: Bool) {
+    private func handleGeofenceEvent(_ region: CLRegion, didEnter: Bool) {
         print("\n🌍 DEBUG: Handling geofence event")
         print("  - Region: \(region.identifier)")
         print("  - Event: \(didEnter ? "Entry" : "Exit")")
+        
+        // Check notification setting early
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled", defaultValue: false)
+        print("🔔 DEBUG: Notifications enabled in settings: \(notificationsEnabled)")
         
         // Get the geofence from Core Data
         let fetchRequest: NSFetchRequest<Geofence> = Geofence.fetchRequest()
@@ -743,29 +752,17 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 // Handle sound mode changes
                 if didEnter {
                     NotificationManager.shared.handleGeofenceEntry()
-                    
-                    // Check if notifications are enabled in settings
-                    if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
-                        print("🔔 DEBUG: Notifications enabled, sending entry notification")
-                        NotificationManager.shared.scheduleNotification(
-                            title: "Entered Silent Circle",
-                            body: "Your phone has been silenced at \(geofence.name ?? "this location")"
-                        )
+                    if notificationsEnabled {
+                        handleGeofenceNotification(type: .entry, geofence: geofence)
                     } else {
-                        print("🔕 DEBUG: Notifications disabled, skipping entry notification")
+                        print("🔕 DEBUG: Notifications disabled in settings, skipping notification")
                     }
                 } else {
                     NotificationManager.shared.handleGeofenceExit()
-                    
-                    // Check if notifications are enabled in settings
-                    if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
-                        print("🔔 DEBUG: Notifications enabled, sending exit notification")
-                        NotificationManager.shared.scheduleNotification(
-                            title: "Exited Silent Circle",
-                            body: "Your phone's sound settings have been restored"
-                        )
+                    if notificationsEnabled {
+                        handleGeofenceNotification(type: .exit, geofence: geofence)
                     } else {
-                        print("🔕 DEBUG: Notifications disabled, skipping exit notification")
+                        print("🔕 DEBUG: Notifications disabled in settings, skipping notification")
                     }
                 }
                 

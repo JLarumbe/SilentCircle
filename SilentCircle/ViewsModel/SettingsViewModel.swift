@@ -30,8 +30,9 @@ class SettingsViewModel: ObservableObject {
     
     @Published var notificationsEnabled: Bool {
         didSet {
+            print("🔔 DEBUG: Notifications setting changed: \(notificationsEnabled)")
             UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
-            print("🔄 DEBUG: Notifications enabled: \(notificationsEnabled)")
+            print("🔔 DEBUG: Saved to UserDefaults: \(UserDefaults.standard.bool(forKey: "notificationsEnabled", defaultValue: false))")
         }
     }
     
