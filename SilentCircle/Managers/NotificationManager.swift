@@ -1,8 +1,12 @@
 import UserNotifications
+import AVFoundation
 
 class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static var shared = NotificationManager()
     private var hasShownInitialNotification = false
+    
+    // Store the previous ringer state to restore it when exiting geofence
+    private var previousRingerState: Bool?
     
     override init() {
         super.init()
@@ -81,5 +85,50 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 completion?(false)
             }
         }
+    }
+    
+    // Add method to handle sound mode changes
+    func handleGeofenceEntry() {
+        print("🔇 DEBUG: Handling geofence entry")
+        let soundMode = SoundMode(rawValue: UserDefaults.standard.string(forKey: "soundMode") ?? "") ?? .silent
+        
+        // Store current ringer state before changing it
+        previousRingerState = try? AVAudioSession.sharedInstance().isOtherAudioPlaying
+        
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.ambient, options: [])
+            try audioSession.setActive(true)
+            
+            switch soundMode {
+            case .silent:
+                print("🔕 DEBUG: Setting phone to silent mode")
+                try audioSession.setMode(.default)
+            case .vibrate:
+                print("📳 DEBUG: Setting phone to vibrate mode")
+                try audioSession.setMode(.videoChat) // This enables vibration
+            }
+        } catch {
+            print("❌ DEBUG: Failed to change sound mode: \(error.localizedDescription)")
+        }
+    }
+    
+    func handleGeofenceExit() {
+        print("🔊 DEBUG: Handling geofence exit")
+        
+        // Restore previous ringer state
+        if let wasRinging = previousRingerState {
+            do {
+                let audioSession = AVAudioSession.sharedInstance()
+                try audioSession.setActive(false)
+                if wasRinging {
+                    print("🔔 DEBUG: Restoring previous ringer state")
+                    try audioSession.setMode(.default)
+                }
+            } catch {
+                print("❌ DEBUG: Failed to restore sound mode: \(error.localizedDescription)")
+            }
+        }
+        previousRingerState = nil
     }
 } 

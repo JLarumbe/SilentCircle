@@ -14,6 +14,8 @@ public struct StatusGroup: View {
     let status: String
     var background: Color = .clear
     
+    @AppStorage("distanceUnit") private var distanceUnit: String = DistanceUnit.kilometers.rawValue
+    
     public init(icon: String, iconColor: Color, title: String, status: String, background: Color = .clear) {
         self.icon = icon
         self.iconColor = iconColor

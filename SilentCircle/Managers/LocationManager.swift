@@ -566,19 +566,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        guard let location = userLocation else { return }
-        
-        Task {
-            await handleLocationUpdate(location, source: .regionEntry(region))
-        }
+        print("\n📍 DEBUG: Did enter region: \(region.identifier)")
+        handleGeofenceEvent(region, didEnter: true)
     }
     
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        guard let location = userLocation else { return }
-        
-        Task {
-            await handleLocationUpdate(location, source: .regionExit(region))
-        }
+        print("\n📍 DEBUG: Did exit region: \(region.identifier)")
+        handleGeofenceEvent(region, didEnter: false)
     }
     
     func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
@@ -693,8 +687,8 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             manager.desiredAccuracy = newMode.desiredAccuracy
             manager.distanceFilter = newMode.distanceFilter
             print("⚙️ DEBUG: Updated accuracy mode: \(String(describing: newMode))")
-            print("📏 DEBUG: Closest geofence: \(String(format: "%.0f", closestDistance))m")
-            print("⚡️ DEBUG: New distance filter: \(String(format: "%.0f", newMode.distanceFilter))m")
+            print("📏 DEBUG: Closest geofence: \(closestDistance.formatted(unit: DistanceUnit(rawValue: UserDefaults.standard.string(forKey: "distanceUnit") ?? "") ?? .kilometers))")
+            print("⚡️ DEBUG: New distance filter: \(newMode.distanceFilter.formatted(unit: DistanceUnit(rawValue: UserDefaults.standard.string(forKey: "distanceUnit") ?? "") ?? .kilometers))")
         }
     }
     
@@ -729,6 +723,56 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             } else {
                 print("📍 DEBUG: Using recent location, deferring updates")
             }
+        }
+    }
+    
+    func handleGeofenceEvent(_ region: CLRegion, didEnter: Bool) {
+        print("\n🌍 DEBUG: Handling geofence event")
+        print("  - Region: \(region.identifier)")
+        print("  - Event: \(didEnter ? "Entry" : "Exit")")
+        
+        // Get the geofence from Core Data
+        let fetchRequest: NSFetchRequest<Geofence> = Geofence.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", region.identifier)
+        
+        do {
+            if let geofence = try viewContext.fetch(fetchRequest).first {
+                // Update current geofence
+                currentGeofence = didEnter ? geofence : nil
+                
+                // Handle sound mode changes
+                if didEnter {
+                    NotificationManager.shared.handleGeofenceEntry()
+                    
+                    // Check if notifications are enabled in settings
+                    if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
+                        print("🔔 DEBUG: Notifications enabled, sending entry notification")
+                        NotificationManager.shared.scheduleNotification(
+                            title: "Entered Silent Circle",
+                            body: "Your phone has been silenced at \(geofence.name ?? "this location")"
+                        )
+                    } else {
+                        print("🔕 DEBUG: Notifications disabled, skipping entry notification")
+                    }
+                } else {
+                    NotificationManager.shared.handleGeofenceExit()
+                    
+                    // Check if notifications are enabled in settings
+                    if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
+                        print("🔔 DEBUG: Notifications enabled, sending exit notification")
+                        NotificationManager.shared.scheduleNotification(
+                            title: "Exited Silent Circle",
+                            body: "Your phone's sound settings have been restored"
+                        )
+                    } else {
+                        print("🔕 DEBUG: Notifications disabled, skipping exit notification")
+                    }
+                }
+                
+                print("✅ DEBUG: Successfully handled geofence \(didEnter ? "entry" : "exit")")
+            }
+        } catch {
+            print("❌ DEBUG: Failed to fetch geofence: \(error.localizedDescription)")
         }
     }
 } 

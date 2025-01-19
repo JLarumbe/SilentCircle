@@ -8,13 +8,15 @@ struct GeofenceCell: View {
     let onTap: (Geofence) -> Void
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject private var locationManager: LocationManager
+    @AppStorage("distanceUnit") private var distanceUnit: String = DistanceUnit.kilometers.rawValue
     
     // MARK: - Computed Properties
     private var distanceFromUser: String? {
         guard let userLocation = locationManager.userLocation else { return nil }
         let geofenceLocation = CLLocation(latitude: geofence.latitude, longitude: geofence.longitude)
         let distance = geofenceLocation.distance(from: userLocation)
-        return distance < 1000 ? String(format: "%.0fm", distance) : String(format: "%.1fkm", distance / 1000)
+        let unit = DistanceUnit(rawValue: distanceUnit) ?? .kilometers
+        return distance.formatted(unit: unit)
     }
     
     private var statusColor: Color {
@@ -35,6 +37,11 @@ struct GeofenceCell: View {
         } else {
             return "Not Monitoring"
         }
+    }
+    
+    private var radiusText: String {
+        let unit = DistanceUnit(rawValue: distanceUnit) ?? .kilometers
+        return CLLocationDistance(geofence.radius).formatted(unit: unit)
     }
     
     // MARK: - Body
@@ -103,7 +110,7 @@ struct GeofenceCell: View {
                         HStack(spacing: 4) {
                             Image(systemName: "ruler.fill")
                                 .font(.caption2)
-                            Text("\(Int(geofence.radius))m")
+                            Text(radiusText)
                                 .font(.caption.weight(.medium))
                         }
                         .foregroundStyle(.secondary)
@@ -140,7 +147,7 @@ struct GeofenceCell: View {
         .contentShape(Rectangle())
         // Accessibility
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(geofence.name ?? "Unnamed Circle"), \(statusText), \(Int(geofence.radius)) meters radius\(distanceFromUser.map { ", \($0) away" } ?? "")")
+        .accessibilityLabel("\(geofence.name ?? "Unnamed Circle"), \(statusText), \(radiusText)")
         .accessibilityHint("Double tap to edit this Silent Circle")
     }
 }

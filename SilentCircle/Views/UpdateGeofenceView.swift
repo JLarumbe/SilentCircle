@@ -20,6 +20,7 @@ struct UpdateGeofenceView: View {
     @State private var currentStep = 0
     @State private var mapPosition: MapCameraPosition
     @State private var lastCameraDistance: Double = 250  // Store last camera distance
+    @AppStorage("distanceUnit") private var distanceUnit: String = DistanceUnit.kilometers.rawValue
     private let geofence: Geofence
     
     private let steps = ["Name", "Location", "Radius", "Settings"]
@@ -117,8 +118,10 @@ struct UpdateGeofenceView: View {
                     )
                 case 2:
                     RadiusStepView(
-                        viewModel: viewModel,
-                        mapPosition: $mapPosition
+                        radius: $viewModel.radius,
+                        mapPosition: $mapPosition,
+                        distanceUnit: distanceUnit,
+                        pinCoordinate: viewModel.pinCoordinate
                     )
                 case 3:
                     SettingsStepView(
@@ -344,25 +347,17 @@ private struct LocationStepView: View {
 }
 
 private struct RadiusStepView: View {
-    @ObservedObject var viewModel: UpdateGeofenceViewModel
+    @Binding var radius: Double
     @Binding var mapPosition: MapCameraPosition
-    
-    private func updateMapCamera() {
-        // Use a fixed distance based on radius
-        mapPosition = .camera(MapCamera(
-            centerCoordinate: viewModel.pinCoordinate,
-            distance: max(viewModel.radius * 2, 250),
-            heading: 0,
-            pitch: 0
-        ))
-    }
+    let distanceUnit: String
+    let pinCoordinate: CLLocationCoordinate2D
     
     var body: some View {
         VStack(spacing: 24) {
             MapContentView(
                 mapPosition: $mapPosition,
-                pinCoordinate: viewModel.pinCoordinate,
-                radius: viewModel.radius,
+                pinCoordinate: pinCoordinate,
+                radius: radius,
                 onTapLocation: { _ in },
                 onLocationRequest: { },
                 showLocationButton: false
@@ -384,7 +379,7 @@ private struct RadiusStepView: View {
                     Text("Circle Radius")
                         .font(.headline)
                     Spacer()
-                    Text("\(Int(viewModel.radius))m")
+                    Text(CLLocationDistance(radius).formatted(unit: DistanceUnit(rawValue: distanceUnit) ?? .kilometers))
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 12)
@@ -398,7 +393,9 @@ private struct RadiusStepView: View {
                 HStack {
                     Image(systemName: "circle.dotted")
                         .foregroundStyle(.purple)
-                    Slider(value: $viewModel.radius, in: 10...500, step: 10) { editing in
+                    Slider(value: $radius, 
+                           in: distanceUnit == DistanceUnit.kilometers.rawValue ? 10...500 : 11...547, // 10-500m or equivalent in yards
+                           step: distanceUnit == DistanceUnit.kilometers.rawValue ? 10 : 11) { editing in
                         if !editing {
                             updateMapCamera()
                         }
@@ -426,13 +423,22 @@ private struct RadiusStepView: View {
     }
     
     private var radiusDescription: String {
-        if viewModel.radius < 50 {
+        if radius < 50 {
             return "small"
-        } else if viewModel.radius < 200 {
+        } else if radius < 200 {
             return "medium"
         } else {
             return "large"
         }
+    }
+    
+    private func updateMapCamera() {
+        mapPosition = .camera(MapCamera(
+            centerCoordinate: pinCoordinate,
+            distance: max(radius * 2, 250),
+            heading: 0,
+            pitch: 0
+        ))
     }
 }
 

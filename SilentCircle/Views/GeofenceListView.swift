@@ -196,6 +196,9 @@ private struct GeofenceListContent: View {
             let distance1 = location1.distance(from: userLocation)
             let distance2 = location2.distance(from: userLocation)
             
+            let unit = DistanceUnit(rawValue: UserDefaults.standard.string(forKey: "distanceUnit") ?? "") ?? .kilometers
+            print("📏 DEBUG: Distance comparison - \(geofence1.name ?? "Unknown"): \(distance1.formatted(unit: unit)) vs \(geofence2.name ?? "Unknown"): \(distance2.formatted(unit: unit))")
+            
             return distance1 < distance2
         }
     }
@@ -508,7 +511,8 @@ private struct GeofenceList: View {
             let distance1 = location1.distance(from: userLocation)
             let distance2 = location2.distance(from: userLocation)
             
-            print("📏 DEBUG: Distance comparison - \(geofence1.name ?? "Unknown"): \(distance1)m vs \(geofence2.name ?? "Unknown"): \(distance2)m")
+            let unit = DistanceUnit(rawValue: UserDefaults.standard.string(forKey: "distanceUnit") ?? "") ?? .kilometers
+            print("📏 DEBUG: Distance comparison - \(geofence1.name ?? "Unknown"): \(distance1.formatted(unit: unit)) vs \(geofence2.name ?? "Unknown"): \(distance2.formatted(unit: unit))")
             
             return distance1 < distance2
         }
