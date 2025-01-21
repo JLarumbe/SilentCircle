@@ -1,11 +1,6 @@
 import SwiftUI
 import MessageUI
 
-enum SoundMode: String, CaseIterable {
-    case silent
-    case vibrate
-}
-
 enum DistanceUnit: String, CaseIterable {
     case kilometers
     case miles
@@ -17,22 +12,7 @@ class SettingsViewModel: ObservableObject {
     @Published var isEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: "isEnabled")
-            print("🔄 DEBUG: Silent Circle enabled: \(isEnabled)")
-        }
-    }
-    
-    @Published var soundMode: SoundMode {
-        didSet {
-            UserDefaults.standard.set(soundMode.rawValue, forKey: "soundMode")
-            print("🔄 DEBUG: Sound mode changed to: \(soundMode)")
-        }
-    }
-    
-    @Published var notificationsEnabled: Bool {
-        didSet {
-            print("🔔 DEBUG: Notifications setting changed: \(notificationsEnabled)")
-            UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
-            print("🔔 DEBUG: Saved to UserDefaults: \(UserDefaults.standard.bool(forKey: "notificationsEnabled", defaultValue: false))")
+            print("🔄 DEBUG: Location Circle enabled: \(isEnabled)")
         }
     }
     
@@ -40,6 +20,13 @@ class SettingsViewModel: ObservableObject {
         didSet {
             UserDefaults.standard.set(distanceUnit.rawValue, forKey: "distanceUnit")
             print("🔄 DEBUG: Distance unit changed to: \(distanceUnit)")
+        }
+    }
+    
+    @Published var isTestingEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isTestingEnabled, forKey: "isTestingEnabled")
+            print("🧪 DEBUG: Testing mode enabled: \(isTestingEnabled)")
         }
     }
     
@@ -52,15 +39,17 @@ class SettingsViewModel: ObservableObject {
     init() {
         // Load saved settings with default values
         self.isEnabled = UserDefaults.standard.bool(forKey: "isEnabled", defaultValue: true)
-        self.soundMode = SoundMode(rawValue: UserDefaults.standard.string(forKey: "soundMode") ?? "") ?? .silent
-        self.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
         self.distanceUnit = DistanceUnit(rawValue: UserDefaults.standard.string(forKey: "distanceUnit") ?? "") ?? .kilometers
+        #if DEBUG
+        self.isTestingEnabled = UserDefaults.standard.bool(forKey: "isTestingEnabled", defaultValue: true)
+        #else
+        self.isTestingEnabled = false
+        #endif
         
         print("📱 DEBUG: SettingsViewModel initialized")
         print("  - Enabled: \(isEnabled)")
-        print("  - Sound Mode: \(soundMode)")
-        print("  - Notifications: \(notificationsEnabled)")
         print("  - Distance Unit: \(distanceUnit)")
+        print("  - Testing Enabled: \(isTestingEnabled)")
     }
     
     // MARK: - Methods

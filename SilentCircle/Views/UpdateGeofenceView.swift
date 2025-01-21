@@ -244,14 +244,18 @@ struct UpdateGeofenceView: View {
             PersistenceController.shared.saveIfNeeded()
             
             // Update monitoring
-            if geofence.isActive {
-                locationManager.updateGeofence(geofence)
-            } else {
-                locationManager.stopMonitoringGeofence(geofence)
+            Task {
+                if geofence.isActive {
+                    await locationManager.updateGeofence(geofence)
+                } else {
+                    await locationManager.stopMonitoringGeofence(geofence)
+                }
+                
+                // Dismiss the view
+                await MainActor.run {
+                    dismiss()
+                }
             }
-            
-            // Dismiss the view
-            dismiss()
         }
     }
 }

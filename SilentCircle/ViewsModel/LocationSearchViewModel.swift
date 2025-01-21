@@ -81,7 +81,7 @@ class LocationSearchViewModel: NSObject, ObservableObject {
     func updateLocationManager(_ newLocationManager: LocationManager) {
         self.locationManager = newLocationManager
         Task {
-            await setupInitialRegion()
+            setupInitialRegion()
         }
     }
 }

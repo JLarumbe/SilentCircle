@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var viewModel: SettingsViewModel
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = true
     
     init() {
         // Create the view model directly since we're in a synchronous context
@@ -17,17 +18,15 @@ struct SettingsView: View {
                 Section("General") {
                     Toggle("Enable Silent Circle", isOn: $viewModel.isEnabled)
                         .tint(.purple)
-                    
-                    Picker("Sound Mode", selection: $viewModel.soundMode) {
-                        Text("Silent").tag(SoundMode.silent)
-                        Text("Vibrate").tag(SoundMode.vibrate)
-                    }
                 }
                 
                 // Notifications Section
                 Section("Notifications") {
-                    Toggle("Notify on Entry/Exit", isOn: $viewModel.notificationsEnabled)
+                    Toggle("Enable Notifications", isOn: $notificationsEnabled)
                         .tint(.purple)
+                    Button("Notification Settings") {
+                        viewModel.openNotificationSettings()
+                    }
                 }
                 
                 // Distance Unit Section
@@ -44,15 +43,6 @@ struct SettingsView: View {
                     Button(action: viewModel.openLocationSettings) {
                         HStack {
                             Text("Location Settings")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    Button(action: viewModel.openNotificationSettings) {
-                        HStack {
-                            Text("Notification Settings")
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .foregroundStyle(.secondary)
@@ -75,6 +65,15 @@ struct SettingsView: View {
                             Spacer()
                             Image(systemName: "envelope")
                                 .foregroundStyle(.purple)
+                        }
+                    }
+                }
+                
+                // Developer Section
+                Section("Developer") {
+                    if viewModel.isTestingEnabled {
+                        NavigationLink("Testing") {
+                            TestView()
                         }
                     }
                 }

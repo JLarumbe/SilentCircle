@@ -5,9 +5,6 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static var shared = NotificationManager()
     private var hasShownInitialNotification = false
     
-    // Store the previous ringer state to restore it when exiting geofence
-    private var previousRingerState: Bool?
-    
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
@@ -18,20 +15,29 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             if settings.authorizationStatus == .notDetermined {
                 self.requestAuthorization()
+            } else if settings.authorizationStatus != .authorized {
+                print("⚠️ DEBUG: Notifications not authorized. Current status: \(settings.authorizationStatus)")
             }
         }
     }
     
     func requestAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted && !self.hasShownInitialNotification {
-                // Only show welcome notification the first time permissions are granted
-                DispatchQueue.main.async {
-                    self.hasShownInitialNotification = true
-                    self.scheduleNotification(
-                        title: "Notifications Enabled",
-                        body: "You will now receive Silent Circle notifications"
-                    )
+            if granted {
+                print("✅ DEBUG: Notification authorization granted")
+                if !self.hasShownInitialNotification {
+                    DispatchQueue.main.async {
+                        self.hasShownInitialNotification = true
+                        self.scheduleNotification(
+                            title: "Location Circle Active",
+                            body: "You'll receive reminders to silence your phone in your saved locations"
+                        )
+                    }
+                }
+            } else {
+                print("❌ DEBUG: Notification authorization denied")
+                if let error = error {
+                    print("❌ DEBUG: Authorization error: \(error.localizedDescription)")
                 }
             }
         }
@@ -87,48 +93,31 @@ class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
     
-    // Add method to handle sound mode changes
-    func handleGeofenceEntry() {
-        print("🔇 DEBUG: Handling geofence entry")
-        let soundMode = SoundMode(rawValue: UserDefaults.standard.string(forKey: "soundMode") ?? "") ?? .silent
-        
-        // Store current ringer state before changing it
-        previousRingerState = try? AVAudioSession.sharedInstance().isOtherAudioPlaying
-        
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.ambient, options: [])
-            try audioSession.setActive(true)
-            
-            switch soundMode {
-            case .silent:
-                print("🔕 DEBUG: Setting phone to silent mode")
-                try audioSession.setMode(.default)
-            case .vibrate:
-                print("📳 DEBUG: Setting phone to vibrate mode")
-                try audioSession.setMode(.videoChat) // This enables vibration
-            }
-        } catch {
-            print("❌ DEBUG: Failed to change sound mode: \(error.localizedDescription)")
-        }
+    // Add method to handle geofence entry
+    func handleGeofenceEntry(geofenceName: String) {
+        print("📍 DEBUG: Handling geofence entry for: \(geofenceName)")
+        sendNotification(
+            title: "Entering \(geofenceName)",
+            body: "You've entered \(geofenceName). Remember to silence your phone!"
+        )
     }
     
-    func handleGeofenceExit() {
-        print("🔊 DEBUG: Handling geofence exit")
-        
-        // Restore previous ringer state
-        if let wasRinging = previousRingerState {
-            do {
-                let audioSession = AVAudioSession.sharedInstance()
-                try audioSession.setActive(false)
-                if wasRinging {
-                    print("🔔 DEBUG: Restoring previous ringer state")
-                    try audioSession.setMode(.default)
-                }
-            } catch {
-                print("❌ DEBUG: Failed to restore sound mode: \(error.localizedDescription)")
+    func handleGeofenceExit(geofenceName: String) {
+        print("📍 DEBUG: Handling geofence exit for: \(geofenceName)")
+        sendNotification(
+            title: "Exiting \(geofenceName)",
+            body: "You've left \(geofenceName). You can unmute your phone now."
+        )
+    }
+    
+    private func sendNotification(title: String, body: String) {
+        print("📱 DEBUG: Sending notification - Title: \(title)")
+        scheduleNotification(title: title, body: body) { success in
+            if success {
+                print("✅ DEBUG: Notification scheduled successfully")
+            } else {
+                print("❌ DEBUG: Failed to schedule notification")
             }
         }
-        previousRingerState = nil
     }
 } 

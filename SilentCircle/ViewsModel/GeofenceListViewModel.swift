@@ -137,7 +137,7 @@ class GeofenceListViewModel: ObservableObject {
         Task {
             for index in offsets {
                 let geofence = geofences[index]
-                locationManager.stopMonitoringGeofence(geofence)
+                await locationManager.stopMonitoringGeofence(geofence)
                 viewContext.delete(geofence)
             }
             
@@ -153,7 +153,7 @@ class GeofenceListViewModel: ObservableObject {
         
         Task {
             print("✅ DEBUG: Stopping monitoring for geofence")
-            locationManager.stopMonitoringGeofence(geofence)
+            await locationManager.stopMonitoringGeofence(geofence)
             
             print("✅ DEBUG: Deleting geofence from context")
             viewContext.delete(geofence)

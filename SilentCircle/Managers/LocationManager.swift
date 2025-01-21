@@ -24,13 +24,13 @@ private enum GeofenceNotificationType {
         switch self {
         case .entry:
             return (
-                "Entering Silent Circle (\(geofence.name ?? "Unknown"))",
-                "Notifications will be turned off until you leave."
+                "Entering \(geofence.name ?? "Unknown")",
+                "Please remember to silence your phone"
             )
         case .exit:
             return (
-                "Exiting Silent Circle (\(geofence.name ?? "Unknown"))",
-                "Notifications have been restored."
+                "Exiting \(geofence.name ?? "Unknown")",
+                "You can now unmute your phone"
             )
         }
     }
@@ -87,6 +87,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let viewContext: NSManagedObjectContext
     private let locationSubject = PassthroughSubject<CLLocation, Never>()
     private let minimumLocationUpdateInterval: TimeInterval = 1.0
+    @MainActor
     private var state = GeofenceState()
     private var isInitialSetupComplete = false
     private var isSingleLocationRequest = false
@@ -117,10 +118,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         self.manager = CLLocationManager()
         self.viewContext = PersistenceController.shared.container.viewContext
         super.init()
-        setupLocationManager()
+        
+        Task { @MainActor in
+            await setupLocationManager()
+        }
     }
     
-    private func setupLocationManager() {
+    private func setupLocationManager() async {
         guard !isInitialSetupComplete else {
             print("ℹ️ DEBUG: Setup already completed, skipping")
             return
@@ -147,75 +151,70 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.requestAlwaysAuthorization()
         print("🔐 DEBUG: Requested 'Always' location authorization")
         
-        Task {
-            await checkNotificationSettings()
-            updateMonitoringStatus()
-            
-            // Start monitoring any active geofences
-            do {
-                let activeGeofences = try await viewContext.perform {
-                    try self.findActiveGeofences()
-                }
-                print("📍 DEBUG: Found \(activeGeofences.count) active geofences")
-                
-                // Clear existing monitoring
-                state.monitoredRegions.forEach { region in
-                    manager.stopMonitoring(for: region)
-                }
-                state.monitoredRegions.removeAll()
-                currentGeofence = nil
-                
-                // Start fresh monitoring with notifications initially enabled
-                state.shouldSendNotifications = true
-                
-                // Start monitoring all active geofences
-                for geofence in activeGeofences {
-                    startMonitoringGeofence(geofence)
-                }
-                
-                // Mark setup as complete
-                isInitialSetupComplete = true
-                
-                // Initialize location monitoring if we have active geofences
-                if !activeGeofences.isEmpty {
-                    print("🎯 DEBUG: Initializing location monitoring for active geofences")
-                    // If we already have a location, process it immediately
-                    if let location = userLocation {
-                        print("📍 DEBUG: Using existing location for initial check")
-                        await handleLocationUpdate(location, source: .standard)
-                    } else {
-                        print("📍 DEBUG: No location available, requesting single update")
-                        manager.requestLocation()
-                    }
-                } else {
-                    print("📍 DEBUG: No active geofences, skipping location monitoring")
-                }
-            } catch {
-                print("⚠️ DEBUG: Failed to fetch active geofences: \(error)")
+        await checkNotificationSettings()
+        await updateMonitoringStatus()
+        
+        // Start monitoring any active geofences
+        do {
+            let activeGeofences = try await viewContext.perform {
+                try self.findActiveGeofences()
             }
+            print("📍 DEBUG: Found \(activeGeofences.count) active geofences")
+            
+            // Clear existing monitoring
+            state.monitoredRegions.forEach { region in
+                manager.stopMonitoring(for: region)
+            }
+            state.monitoredRegions.removeAll()
+            currentGeofence = nil
+            
+            // Start fresh monitoring with notifications initially enabled
+            state.shouldSendNotifications = true
+            
+            // Start monitoring all active geofences
+            for geofence in activeGeofences {
+                startMonitoringGeofence(geofence)
+            }
+            
+            // Mark setup as complete
+            isInitialSetupComplete = true
+            
+            // Initialize location monitoring if we have active geofences
+            if !activeGeofences.isEmpty {
+                print("🎯 DEBUG: Initializing location monitoring for active geofences")
+                // If we already have a location, process it immediately
+                if let location = userLocation {
+                    print("📍 DEBUG: Using existing location for initial check")
+                    await handleLocationUpdate(location, source: .standard)
+                } else {
+                    print("📍 DEBUG: No location available, requesting single update")
+                    manager.requestLocation()
+                }
+            } else {
+                print("📍 DEBUG: No active geofences, skipping location monitoring")
+            }
+        } catch {
+            print("⚠️ DEBUG: Failed to fetch active geofences: \(error)")
         }
     }
     
     // MARK: - Location Handling
+    @MainActor
     func handleLocationUpdate(_ location: CLLocation, source: LocationUpdateSource) async {
         print("\n🔄 DEBUG: Starting location update")
         print("  - Source: \(source)")
-        print("  - Is creating geofence: \(isCreatingGeofence)")
-        print("  - Is single location request: \(isSingleLocationRequest)")
         
         let now = Date()
         
         // Check update interval and skip if too soon
         if let lastUpdate = state.lastLocationUpdate,
            now.timeIntervalSince(lastUpdate) < minimumLocationUpdateInterval {
-            let timeSinceLastUpdate = now.timeIntervalSince(lastUpdate)
-            print("⏱️ DEBUG: Skipping update - too soon since last update (\(String(format: "%.1f", timeSinceLastUpdate))s)")
             return
         }
         
         // Update state
         state.lastLocationUpdate = now
-        userLocation = location
+        await updateUserLocation(location)
         
         // Process based on source
         switch source {
@@ -229,14 +228,6 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         
         // Publish location update
         locationSubject.send(location)
-        
-        // Reset flags only after everything is complete
-        if isSingleLocationRequest {
-            print("  - Resetting single location request flags")
-            print("  - Final update complete")
-            isSingleLocationRequest = false
-            isCreatingGeofence = false
-        }
     }
     
     private func processStandardLocationUpdate(_ location: CLLocation) async {
@@ -253,7 +244,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         // Only update accuracy and monitoring for continuous monitoring
         if !isSingleLocationRequest {
             // Update accuracy based on location and battery
-            updateLocationAccuracy(for: location)
+            await updateLocationAccuracy(for: location)
             await updateMonitoringStatus()
         }
         
@@ -283,7 +274,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         
         var foundActiveGeofence = false
         for region in state.monitoredRegions {
-            guard let geofence = findGeofence(by: .byRegion(region)) else {
+            guard let geofence = await findGeofence(by: .byRegion(region)) else {
                 print("⚠️ DEBUG: Failed to find geofence data for region: \(region.identifier)")
                 continue
             }
@@ -304,7 +295,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 if shouldUpdateState && currentGeofence?.id != geofence.id {
                     print("🔄 DEBUG: Updating current geofence state")
                     state.lastGeofenceStateChange = Date()
-                    updateCurrentGeofence(geofence)
+                    await updateCurrentGeofence(geofence)
                 } else if currentGeofence?.id != geofence.id {
                     print("ℹ️ DEBUG: Inside geofence but skipping state update due to throttling")
                 }
@@ -316,23 +307,25 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         if !foundActiveGeofence && currentGeofence != nil && shouldUpdateState {
             print("🚫 DEBUG: Left all geofence regions, clearing active geofence")
             state.lastGeofenceStateChange = Date()
-            updateCurrentGeofence(nil)
+            await updateCurrentGeofence(nil)
         }
     }
     
-    private func processRegionEntry(_ region: CLRegion, at location: CLLocation) async {
+    @MainActor
+    internal func processRegionEntry(_ region: CLRegion, at location: CLLocation) async {
         print("\n🎯 DEBUG: Processing geofence region entry")
         guard let circularRegion = region as? CLCircularRegion,
-              let geofence = findGeofence(by: .byRegion(circularRegion)) else {
+              let geofence = await findGeofence(by: .byRegion(circularRegion)) else {
             print("⚠️ DEBUG: Failed to find geofence data for region entry: \(region.identifier)")
             return
         }
         
         print("✅ DEBUG: Entered geofence region: \(geofence.name ?? "Unknown")")
-        updateCurrentGeofence(geofence)
+        await updateCurrentGeofence(geofence)
     }
     
-    private func processRegionExit(_ region: CLRegion, at location: CLLocation) async {
+    @MainActor
+    internal func processRegionExit(_ region: CLRegion, at location: CLLocation) async {
         print("\n🚶‍♂️ DEBUG: Processing geofence region exit")
         guard let circularRegion = region as? CLCircularRegion,
               currentGeofence?.name == circularRegion.identifier else {
@@ -341,7 +334,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         
         print("✅ DEBUG: Exited geofence region: \(circularRegion.identifier)")
-        updateCurrentGeofence(nil)
+        await updateCurrentGeofence(nil)
     }
     
     // MARK: - Geofence Management
@@ -358,33 +351,35 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         
         // Create the region
-        guard let region = createRegion(for: geofence) else {
-            print("⚠️ DEBUG: Failed to create region for geofence")
-            return
-        }
-        
-        // Start monitoring
-        manager.startMonitoring(for: region)
-        state.monitoredRegions.insert(region)
-        print("✅ DEBUG: Successfully started monitoring geofence")
-        print("📊 DEBUG: Total monitored regions: \(state.monitoredRegions.count)")
-        
-        // Update monitoring state
-        updateLocationMonitoring()
-        
-        // If we have a current location, check if we're inside this geofence
-        if let location = userLocation {
-            print("🔍 DEBUG: Checking initial position against geofence")
-            Task {
-                await handleLocationUpdate(location, source: .standard)
+        Task {
+            guard let region = await createRegion(for: geofence) else {
+                print("⚠️ DEBUG: Failed to create region for geofence")
+                return
             }
-        } else {
-            print("⚠️ DEBUG: No location available yet, will check when location updates")
-            requestLocation()
+            
+            // Start monitoring
+            manager.startMonitoring(for: region)
+            state.monitoredRegions.insert(region)
+            print("✅ DEBUG: Successfully started monitoring geofence")
+            print("📊 DEBUG: Total monitored regions: \(state.monitoredRegions.count)")
+            
+            // Update monitoring state
+            updateLocationMonitoring()
+            
+            // If we have a current location, check if we're inside this geofence
+            if let location = userLocation {
+                print("🔍 DEBUG: Checking initial position against geofence")
+                Task {
+                    await handleLocationUpdate(location, source: .standard)
+                }
+            } else {
+                print("⚠️ DEBUG: No location available yet, will check when location updates")
+                requestLocation()
+            }
         }
     }
     
-    func stopMonitoringGeofence(_ geofence: Geofence) {
+    func stopMonitoringGeofence(_ geofence: Geofence) async {
         print("🛑 DEBUG: Stopping monitoring for geofence: \(geofence.name ?? "Unknown")")
         
         // Find and stop monitoring the region
@@ -401,39 +396,40 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
             }
         }
         
-        updateMonitoringStatus()
+        await updateMonitoringStatus()
     }
     
-    func updateGeofence(_ geofence: Geofence) {
+    func updateGeofence(_ geofence: Geofence) async {
         print("🔄 DEBUG: Updating geofence: \(geofence.name ?? "Unknown")")
         
         // Stop monitoring old region if it exists
-        stopMonitoringGeofence(geofence)
+        await stopMonitoringGeofence(geofence)
         
         // Create and start monitoring new region
-        guard let region = createRegion(for: geofence) else {
-            print("⚠️ DEBUG: Failed to create region for geofence")
-            return
-        }
-        
-        manager.startMonitoring(for: region)
-        state.monitoredRegions.insert(region)
-        
-        // Update monitoring status
-        updateMonitoringStatus()
-        
-        // Check if we need to update current geofence
-        if let location = userLocation {
-            Task {
+        Task {
+            guard let region = await createRegion(for: geofence) else {
+                print("⚠️ DEBUG: Failed to create region for geofence")
+                return
+            }
+            
+            manager.startMonitoring(for: region)
+            state.monitoredRegions.insert(region)
+            
+            // Update monitoring status
+            await updateMonitoringStatus()
+            
+            // Check if we need to update current geofence
+            if let location = userLocation {
                 await handleLocationUpdate(location, source: .standard)
             }
+            
+            print("✅ DEBUG: Successfully updated geofence monitoring")
         }
-        
-        print("✅ DEBUG: Successfully updated geofence monitoring")
     }
     
     // MARK: - Helper Methods
-    private func findGeofence(by method: GeofenceLookupMethod) -> Geofence? {
+    @MainActor
+    private func findGeofence(by method: GeofenceLookupMethod) async -> Geofence? {
         let fetchRequest: NSFetchRequest<Geofence> = Geofence.fetchRequest()
         
         switch method {
@@ -446,10 +442,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         
         fetchRequest.fetchLimit = 1
-        return try? viewContext.fetch(fetchRequest).first
+        return try? await viewContext.perform {
+            try self.viewContext.fetch(fetchRequest).first
+        }
     }
     
-    private func createRegion(for geofence: Geofence) -> CLCircularRegion? {
+    @MainActor
+    private func createRegion(for geofence: Geofence) async -> CLCircularRegion? {
         guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self),
               let identifier = geofence.name ?? geofence.id?.uuidString else { return nil }
         
@@ -468,37 +467,19 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         return region
     }
     
-    private func updateMonitoringStatus() {
-        print("\n🔍 DEBUG: Updating monitoring status")
-        print("  - Current status: \(monitoringStatus)")
-        print("  - Is creating geofence: \(isCreatingGeofence)")
-        print("  - Is single location request: \(isSingleLocationRequest)")
-        print("  - Stack trace:")
-        Thread.callStackSymbols.prefix(5).forEach { print("    \($0)") }
-        
-        // Don't update status during geofence creation
-        guard !isCreatingGeofence else {
-            print("ℹ️ DEBUG: Skipping monitoring status update during geofence creation")
-            return
-        }
+    private func updateMonitoringStatus() async {
+        guard !isCreatingGeofence else { return }
 
         switch manager.authorizationStatus {
         case .authorizedAlways:
-            Task {
-                let activeGeofences = try? await viewContext.perform {
-                    try self.findActiveGeofences()
-                }
-                let newStatus: MonitoringStatus = (activeGeofences?.isEmpty ?? true) ? .noGeofences : .ready
-                print("  - Authorization: .authorizedAlways")
-                print("  - Active geofences: \(activeGeofences?.count ?? 0)")
-                print("  - New status: \(newStatus)")
-                monitoringStatus = newStatus
+            let activeGeofences = try? await viewContext.perform {
+                try self.findActiveGeofences()
             }
+            let newStatus: MonitoringStatus = (activeGeofences?.isEmpty ?? true) ? .noGeofences : .ready
+            monitoringStatus = newStatus
         case .notDetermined:
-            print("  - Authorization: .notDetermined")
             monitoringStatus = .unknown
         default:
-            print("  - Authorization: \(manager.authorizationStatus)")
             monitoringStatus = .notAuthorized
         }
     }
@@ -518,69 +499,48 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     // MARK: - CLLocationManagerDelegate
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        updateMonitoringStatus()
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        print("\n📍 DEBUG: Received location update with \(locations.count) locations")
-        print("  - Stack trace:")
-        Thread.callStackSymbols.prefix(5).forEach { print("    \($0)") }
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
         
-        guard let location = locations.last else {
-            print("⚠️ DEBUG: No location data available")
-            return
-        }
-        
-        print("📍 DEBUG: Location accuracy: \(location.horizontalAccuracy)m")
-        if location.horizontalAccuracy > 100 {
-            print("⚠️ DEBUG: Location accuracy too low, skipping update")
-            return
-        }
-        
-        // Skip if this is a duplicate location
-        if let lastLocation = userLocation {
-            let isSameLocation = lastLocation.coordinate.latitude == location.coordinate.latitude &&
-                               lastLocation.coordinate.longitude == location.coordinate.longitude
-            let isRecentUpdate = state.lastLocationUpdate.map { 
-                Date().timeIntervalSince($0) < minimumLocationUpdateInterval 
-            } ?? false
-            
-            if isSameLocation {
-                print("ℹ️ DEBUG: Skipping duplicate location update")
-                return
-            }
-            
-            if isRecentUpdate {
-                print("⏱️ DEBUG: Skipping update - too soon since last update")
-                return
-            }
-        }
-        
-        Task {
-            print("🔄 DEBUG: Processing location update: \(location.coordinate.latitude), \(location.coordinate.longitude)")
-            print("  - Is creating geofence: \(isCreatingGeofence)")
-            print("  - Is single location request: \(isSingleLocationRequest)")
+        Task { @MainActor in
             await handleLocationUpdate(location, source: .standard)
         }
     }
     
-    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        print("\n📍 DEBUG: Did enter region: \(region.identifier)")
-        handleGeofenceEvent(region, didEnter: true)
+    nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        Task { @MainActor in
+            if let location = userLocation {
+                await processRegionEntry(region, at: location)
+            } else {
+                print("⚠️ DEBUG: No location available for region entry, requesting location")
+                requestLocation()
+            }
+        }
     }
     
-    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        print("\n📍 DEBUG: Did exit region: \(region.identifier)")
-        handleGeofenceEvent(region, didEnter: false)
+    nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        Task { @MainActor in
+            if let location = userLocation {
+                await processRegionExit(region, at: location)
+            } else {
+                print("⚠️ DEBUG: No location available for region exit, requesting location")
+                requestLocation()
+            }
+        }
     }
     
-    func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
-        print("⚠️ Monitoring failed for region: '\(region?.identifier ?? "Unknown")', error: \(error.localizedDescription)")
+    nonisolated func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
+        print("⚠️ DEBUG: Monitoring failed for region: \(error.localizedDescription)")
+        Task { @MainActor in
+            await updateMonitoringStatus()
+        }
     }
     
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("⚠️ Location error: \(error.localizedDescription)")
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("⚠️ DEBUG: Location manager failed: \(error.localizedDescription)")
+        Task { @MainActor in
+            await updateMonitoringStatus()
+        }
     }
     
     // MARK: - Public Methods
@@ -613,7 +573,8 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     // MARK: - Geofence State Management
-    private func updateCurrentGeofence(_ geofence: Geofence?) {
+    @MainActor
+    private func updateCurrentGeofence(_ geofence: Geofence?) async {
         print("\n🔄 DEBUG: Updating active geofence")
         print("📍 DEBUG: Previous: \(currentGeofence?.name ?? "None")")
         print("📍 DEBUG: New: \(geofence?.name ?? "None")")
@@ -635,17 +596,19 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
     }
     
+    @MainActor
+    private func updateUserLocation(_ location: CLLocation) async {
+        userLocation = location
+    }
+    
     private func handleGeofenceNotification(type: GeofenceNotificationType, geofence: Geofence) {
         print("\n🔔 DEBUG: Processing geofence notification")
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled", defaultValue: false)
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
         print("📱 DEBUG: Notifications setting in UserDefaults: \(notificationsEnabled)")
-        print("📱 DEBUG: Notification state: \(state.shouldSendNotifications ? "Enabled" : "Disabled")")
         
-        // Check both UserDefaults and internal state
-        guard notificationsEnabled && state.shouldSendNotifications else {
-            print("🔕 DEBUG: Notifications disabled, skipping")
-            print("  - UserDefaults setting: \(notificationsEnabled)")
-            print("  - Internal state: \(state.shouldSendNotifications)")
+        // Only check UserDefaults setting for notifications
+        guard notificationsEnabled else {
+            print("🔕 DEBUG: Notifications disabled in settings, skipping")
             return
         }
         
@@ -656,17 +619,18 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         NotificationManager.shared.scheduleNotification(title: title, body: message)
     }
     
-    private func updateLocationAccuracy(for location: CLLocation) {
+    @MainActor
+    private func updateLocationAccuracy(for location: CLLocation) async {
         let rawBatteryLevel = UIDevice.current.batteryLevel
-        let batteryLevel = rawBatteryLevel < 0 ? 1.0 : rawBatteryLevel  // Default to 100% if battery level is unknown
+        let batteryLevel = rawBatteryLevel < 0 ? 1.0 : rawBatteryLevel
         var closestDistance = CLLocationDistance.greatestFiniteMagnitude
         
         print("\n⚡️ DEBUG: Updating location accuracy settings")
-        print("🔋 DEBUG: Current battery level: \(String(format: "%.0f", batteryLevel * 100))% \(rawBatteryLevel < 0 ? "(Unknown)" : "")")
+        print("🔋 DEBUG: Current battery level: \(String(format: "%.0f", batteryLevel * 100))%")
         
         // Find closest geofence
         for region in state.monitoredRegions {
-            guard let geofence = findGeofence(by: .byRegion(region)) else { continue }
+            guard let geofence = await findGeofence(by: .byRegion(region)) else { continue }
             
             let center = CLLocation(
                 latitude: geofence.latitude,
@@ -736,34 +700,20 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         print("  - Region: \(region.identifier)")
         print("  - Event: \(didEnter ? "Entry" : "Exit")")
         
-        // Check notification setting early
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled", defaultValue: false)
-        print("🔔 DEBUG: Notifications enabled in settings: \(notificationsEnabled)")
-        
         // Get the geofence from Core Data
         let fetchRequest: NSFetchRequest<Geofence> = Geofence.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "id == %@", region.identifier)
+        fetchRequest.predicate = NSPredicate(format: "name == %@", region.identifier)
         
         do {
             if let geofence = try viewContext.fetch(fetchRequest).first {
                 // Update current geofence
                 currentGeofence = didEnter ? geofence : nil
                 
-                // Handle sound mode changes
+                // Send notification
                 if didEnter {
-                    NotificationManager.shared.handleGeofenceEntry()
-                    if notificationsEnabled {
-                        handleGeofenceNotification(type: .entry, geofence: geofence)
-                    } else {
-                        print("🔕 DEBUG: Notifications disabled in settings, skipping notification")
-                    }
+                    NotificationManager.shared.handleGeofenceEntry(geofenceName: geofence.name ?? "Location Circle")
                 } else {
-                    NotificationManager.shared.handleGeofenceExit()
-                    if notificationsEnabled {
-                        handleGeofenceNotification(type: .exit, geofence: geofence)
-                    } else {
-                        print("🔕 DEBUG: Notifications disabled in settings, skipping notification")
-                    }
+                    NotificationManager.shared.handleGeofenceExit(geofenceName: geofence.name ?? "Location Circle")
                 }
                 
                 print("✅ DEBUG: Successfully handled geofence \(didEnter ? "entry" : "exit")")
@@ -771,5 +721,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         } catch {
             print("❌ DEBUG: Failed to fetch geofence: \(error.localizedDescription)")
         }
+        
+        NotificationManager.shared.requestAuthorization()
     }
 } 

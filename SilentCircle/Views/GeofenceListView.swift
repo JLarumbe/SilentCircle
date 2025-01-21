@@ -130,7 +130,7 @@ struct GeofenceListView: View {
                     )
                 }
             }
-            .navigationTitle("Silent Circles")
+            .navigationTitle("Location Circles")
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingAddGeofence) {
                 NavigationView {
@@ -236,7 +236,7 @@ private struct GeofenceListContent: View {
                             .background(Circle().fill(Color(.secondarySystemGroupedBackground)).shadow(radius: 4))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Add new Silent Circle")
+                    .accessibilityLabel("Add new Location Circle")
                     .padding(.trailing, 24)
                     .padding(.bottom, 24)
                 }
@@ -322,7 +322,7 @@ private struct CurrentStatusCard: View {
                         Text(currentGeofence.name ?? "Unknown")
                             .font(.subheadline.weight(.medium))
                         
-                        Image(systemName: "bell.fill")
+                        Image(systemName: "location.fill")
                             .font(.caption)
                             .foregroundStyle(.purple)
                     }
@@ -453,10 +453,10 @@ private struct ListEmptyStateView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.purple)
             
-            Text("No Silent Circles Yet")
+            Text("No Location Circles Yet")
                 .font(.title2.bold())
             
-            Text("Add your first Silent Circle to automatically silence your device in specific locations.")
+            Text("Add your first circle to get notifications when entering specific locations.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
@@ -536,14 +536,12 @@ private struct GeofenceList: View {
                         .frame(minHeight: 44)
                     }
                     .contextMenu {
-                        // Edit Button
                         Button {
                             selectedGeofence = geofence
                         } label: {
                             Label("Edit Circle", systemImage: "pencil")
                         }
                         
-                        // Delete Button
                         Button(role: .destructive) {
                             print("🗑️ DEBUG: Delete menu triggered for geofence: \(geofence.name ?? "Unnamed")")
                             geofenceToDelete = geofence
@@ -574,7 +572,7 @@ private struct GeofenceList: View {
                 geofence: geofence
             )
         }
-        .alert("Delete Silent Circle?", isPresented: $showingDeleteAlert) {
+        .alert("Delete Location Circle?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {
                 geofenceToDelete = nil
             }
@@ -589,7 +587,7 @@ private struct GeofenceList: View {
             if let name = geofenceToDelete?.name {
                 Text("Are you sure you want to delete \"\(name)\"? This action cannot be undone.")
             } else {
-                Text("Are you sure you want to delete this Silent Circle? This action cannot be undone.")
+                Text("Are you sure you want to delete this Location Circle? This action cannot be undone.")
             }
         }
     }
