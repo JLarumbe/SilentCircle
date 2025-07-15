@@ -1,11 +1,11 @@
-# Silent Circle 📍🔇
+# Silent Circle 
 
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-iOS_16+-blue.svg)](https://developer.apple.com/ios/)
 
 A privacy-focused iOS app that automatically silences your phone when entering designated areas. Built with modern SwiftUI and Core Location.
 
-## Screenshots 📸
+## Screenshots 
 
 <div style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center">
 
@@ -39,30 +39,30 @@ A privacy-focused iOS app that automatically silences your phone when entering d
 
 </div>
 
-## Features ✨
-- 🗺️ Create geofences with custom names/radii
-- 🔕 Automatic silent mode activation
-- 📍 Real-time location tracking
-- 🚨 Entry/exit notifications
-- 🧩 Modular SwiftUI architecture
-- 🔄 Core Data persistence
+## Features 
+- Create geofences with custom names/radii
+- Automatic silent mode activation
+- Real-time location tracking
+- Entry/exit notifications
+- Modular SwiftUI architecture
+- Core Data persistence
 
-## Tech Stack 🛠️
+## Tech Stack 
 - **UI**: SwiftUI, MapKit
 - **Data**: Core Data, @AppStorage
 - **Location**: Core Location, Geofencing
 - **Architecture**: MVVM, Combine
 - **Testing**: XCTest, Core Data in-memory store
 
-## Code Quality ✅
-- 🧠 MVVM architecture
-- ⚡ Combine for reactive programming
-- 🔒 Core Data with background contexts
-- 📊 Extensive debug logging
-- ♿ Full accessibility support
-- 🚦 Swift Concurrency adoption
+## Code Quality 
+- MVVM architecture
+- Combine for reactive programming
+- Core Data with background contexts
+- Extensive debug logging
+- Full accessibility support
+- Swift Concurrency adoption
 
-## Why This Project? 💡
+## Why This Project? 
 Demonstrates mastery of:
 - Modern SwiftUI development
 - Core Location geofencing
